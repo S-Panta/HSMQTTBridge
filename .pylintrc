@@ -1,0 +1,3 @@
+[MAIN]
+ignore=.venv
+disable=C0114,C0116

@@ -1,7 +1,10 @@
 import sqlite3
 
+
 class DatabaseConnection:
-    def __init__(self,path):
+    """Class to wrap sqlite connection"""
+
+    def __init__(self, path):
         self.path = path
         self.connection = None
 
@@ -14,8 +17,8 @@ class DatabaseConnection:
                 print("Connection successful")
             except sqlite3.Error as e:
                 print(f"Error connecting to database: {e}")
-            
-    def execute(self,sql_script):
+
+    def execute(self, sql_script):
         self.__connect()
         cursor = self.connection.cursor()
         cursor.execute(sql_script)
