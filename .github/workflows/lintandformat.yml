@@ -15,11 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - name: github action debug
-        run: |
-          echo "ci - ${{ github.event.pull_request.number || github.ref }}"
-          sleep 30
       
       - uses: actions/setup-python@v7
         with:
