@@ -5,13 +5,17 @@ on:
     branches: main
   push:
     branches: main
+concurrency:
+# see here for information : https://docs.github.com/en/actions/reference/workflows-and-actions/contexts
+  group: ci - ${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
+      
       - uses: actions/setup-python@v7
         with:
           python-version: 3.13
