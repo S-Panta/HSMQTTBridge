@@ -5,10 +5,6 @@ on:
     branches: main
   push:
     branches: main
-concurrency:
-# see here for information : https://docs.github.com/en/actions/reference/workflows-and-actions/contexts
-  group: ci - ${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 jobs:
   lint:
@@ -16,11 +12,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: github action debug
-        run: |
-          echo "ci - ${{ github.event.pull_request.number || github.ref }}"
-          sleep 30
-      
       - uses: actions/setup-python@v7
         with:
           python-version: 3.13
