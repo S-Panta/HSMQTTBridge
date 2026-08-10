@@ -1,4 +1,4 @@
-# pylint: disable=unused-argument
+# pylint: disable=unused-argument,import-error
 import paho.mqtt.client as mqtt
 
 
