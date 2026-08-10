@@ -1,3 +1,4 @@
+```mermaid
 flowchart TB
     X["Sensing nodes"] -- publishes observation --> A["MQTT Broker"]
     A["MQTT Broker"] -- route payload --> B["HSMQTTBridge"]
@@ -17,3 +18,4 @@ flowchart TB
     style G fill:#2E7D32,stroke:#66BB6A,color:#FFFFFF
     style H fill:#B71C1C,stroke:#EF5350,color:#FFFFFF
     style X fill:#1565C0,stroke:#42A5F5,color:#FFFFFF
+```
