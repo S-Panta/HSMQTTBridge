@@ -1,15 +1,32 @@
-flowchart TD
-    A[MQTT Broker] -->|publishes observation| B[MQTT Class subscriber]
-    B -->|on_message received| C[HydroServer Class POST request]
-    C -->|success 200 OK| D[Done]
-    C -->|failure| E[Save to Database pending queue]
-    E --> F[Background Worker retry process]
-    F -->|pulls unsent records| C
-    C -->|success| G[Mark as sent / remove from DB]
-    C -->|failure| H[Leave in DB, retry next cycle]
+## Sequence Diagram
 
-    style A fill:#e1f5fe
-    style D fill:#c8e6c9
-    style G fill:#c8e6c9
-    style E fill:#ffe0b2
-    style H fill:#ffe0b2
+```mermaid
+sequenceDiagram
+    participant Broker as MQTT Broker
+    participant MQTT as MQTT Class
+    participant HS as HydroServer Class
+    participant DB as Database
+    participant Worker as Background Worker
+
+    Broker->>MQTT: publish(observation)
+    MQTT->>HS: post(observation)
+    alt success
+        HS-->>MQTT: 200 OK
+    else failure
+        HS-->>MQTT: error/timeout
+        MQTT->>DB: save(observation, status=pending)
+    end
+
+    loop periodic retry
+        Worker->>DB: fetch pending records
+        DB-->>Worker: [observations]
+        Worker->>HS: post(observation)
+        alt success
+            HS-->>Worker: 200 OK
+            Worker->>DB: mark sent / delete
+        else failure
+            HS-->>Worker: error/timeout
+            Worker->>DB: leave as pending
+        end
+    end
+```
