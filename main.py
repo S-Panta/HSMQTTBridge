@@ -2,6 +2,8 @@ import time
 import os
 
 from database.connection import DatabaseConnection
+
+# from hydroserver.request import Observation
 from mqtt.consumer import MQTTClient
 
 project_directory = os.path.dirname(os.path.abspath(__file__))
@@ -17,10 +19,11 @@ with open(schema_path, "r", encoding="utf-8") as file:
 connection.execute(sql_script)
 connection.commit()
 
-HOST = "localhost"
+HOST = "raspberrypi1.mypc.usu.edu"
 PORT = 1883
 # Conect to mqtt
 client = MQTTClient(HOST, PORT)
+
 
 try:
     client.connect()

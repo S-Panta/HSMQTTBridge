@@ -1,5 +1,10 @@
-# pylint: disable=unused-argument,import-error
+# pylint: disable=unused-argument
+# pylint: disable=import-error
+import json
 import paho.mqtt.client as mqtt
+
+
+from hydroserver.publisher import HydroServerPublisher
 
 
 class MQTTClient:
@@ -8,12 +13,14 @@ class MQTTClient:
     # to:do: need to remove this in future
     KEEP_ALIVE = 60
     CLIENT_ID = "bridge_script"
+    TOPIC = "uwrl/cr350/temperature"
 
     def __init__(self, host, port):
         self.client = None
         self.host = host
         self.port = port
         self.client = None
+        self.publisher = HydroServerPublisher()
 
     def connect(self):
         try:
@@ -37,7 +44,7 @@ class MQTTClient:
     def on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code == 0:
             print("Successfully connected!")
-            client.subscribe("uwrl/test")
+            client.subscribe(self.TOPIC)
         else:
             print(f"Connection failed: {reason_code}")
 
@@ -45,7 +52,13 @@ class MQTTClient:
     # that the client subscribes to
     def on_message(self, client, userdata, message):
         # This is where we write what we want to do when message is received
-        print(message.topic + "" + str(message.payload))
+        # raw byte array (bytes object) is received and therefore decoding before sending to object
+        print("this is when a message is fired inside on messsage")
+        payload = json.loads(message.payload.decode())
+        self.publisher.post_observation_to_hydroserver(payload)
+        # self.Observation.post_observation_to_hydroserver(payload)
+        # Observation(payload)
+        # print(message.topic + "" + str(message.payload))
 
     # The callback called when the broker responds to a subscribe request
     def on_subscribe(self, client, userdata, mid, reason_code, properties):
