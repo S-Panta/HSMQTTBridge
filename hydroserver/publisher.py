@@ -1,7 +1,9 @@
 # pylint: disable=too-few-public-methods
 import os
+from models import Observation
 import requests
 from hydroserverpy import HydroServer
+from pydantic import ValidationError
 
 from dotenv import load_dotenv
 import pandas as pd
@@ -15,32 +17,69 @@ class HydroServerPublisher:
     HYDROSERVER_URL = os.getenv("HYDROSERVER_URL")
     EMAIL = os.getenv("HYDROSEVER_USER")
     PASSWORD = os.getenv("HYDROSEVER_PASSWORD")
-    # API_KEY = ""
-    # # API_KEY = "123"
 
     def __init__(self):
-        self.payload = None
         self.hydroserver = HydroServer(
             host=self.HYDROSERVER_URL, email=self.EMAIL, password=self.PASSWORD
         )
+        self.datastreams = {}
 
-    def post_observation_to_hydroserver(self, payload):
+    def __validate_observation(self, payload):
+        try:
+            return Observation.validate_payload(payload)
+        except ValidationError as e:
+            print(f"Invalid observation: {e}")
+            return None
 
-        # test_payload
-        datastream_uuid = "019f246b-c5b9-7b45-aac6-261adc526b55"
+    def __get_datastream(self, datastream_uuid):
+        datastream = self.datastreams.get(datastream_uuid)
 
-        # need a class to validate payload
-        payload["Datastream"]["@iot.id"] = datastream_uuid
-        print(payload)
+        if datastream is not None:
+            return datastream
 
         try:
-            datastream = self.hydroserver.datastreams.get(uid=datastream_uuid)
+            datastream = self.hydroserver.datastreams.get(datastream_uuid)
+        except requests.exceptions.HTTPError as e:
+            # Only parsed object get here therefore Value Error won't be shown here
+            print(e)
+
+        self.datastreams[datastream_uuid] = datastream
+        return datastream
+
+    def post_observation_to_hydroserver(self, payload):
+        payload = self.__validate_observation(payload)
+        if payload is None:
+            # do nothing
+            # if incoming payload is not correct, it make no sense to either post or store in cache
+            # to do: log this in future
+            return
+        datastream_uuid = payload.Datastream.datastream_id
+        datastream = self.__get_datastream(datastream_uuid)
+
+        try:
             observation = pd.DataFrame(
                 {
-                    "phenomenon_time": [payload["phenomenonTime"]],
-                    "result": [payload["result"]],
+                    "phenomenon_time": [payload.phenomenonTime],
+                    "result": [payload.result],
                 }
             )
-            print(datastream.load_observations(observation))
+            datastream.load_observations(observation)
+
         except requests.exceptions.HTTPError as e:
             print(e)
+
+
+# publisher = HydroServerPublisher()
+# invalid_payload = {
+#     "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d680"},
+#     "result": 32.1,
+#     "phenomenonTime": "2026-08-06T17:43:34Z",
+# }
+# valid_payload = {
+#     "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d681"},
+#     "result": 32.1,
+#     "phenomenonTime": "2026-08-06T17:43:34Z",
+# }
+# # print(publisher.post_observation_to_hydroserver(invalid_payload))
+# # print("...................................................")
+# # print(publisher.post_observation_to_hydroserver(valid_payload))
