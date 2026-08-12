@@ -1,6 +1,6 @@
 # pylint: disable=too-few-public-methods
 import os
-from models import Observation
+from .models import Observation
 import requests
 from hydroserverpy import HydroServer
 from pydantic import ValidationError
@@ -11,12 +11,31 @@ import pandas as pd
 load_dotenv()
 
 
+# pylint: disable=too-few-public-methods
+from uuid import UUID
+from pydantic import BaseModel, Field, ValidationError
+
+
+class Datastream(BaseModel):
+    """Represents a datastream identifier"""
+
+    datastream_id: UUID = Field(alias="@iot.id")
+
+
+class Observation(BaseModel):
+    """Represents a observation payload"""
+
+    result: float
+    phenomenonTime: str
+    Datastream: Datastream
+
+
 class HydroServerPublisher:
     """Class for publishing subscribed information to HydroServer"""
 
     HYDROSERVER_URL = os.getenv("HYDROSERVER_URL")
-    EMAIL = os.getenv("HYDROSEVER_USER")
-    PASSWORD = os.getenv("HYDROSEVER_PASSWORD")
+    EMAIL = os.getenv("HYDROSERVER_USER")
+    PASSWORD = os.getenv("HYDROSERVER_PASSWORD")
 
     def __init__(self):
         self.hydroserver = HydroServer(
@@ -26,9 +45,12 @@ class HydroServerPublisher:
 
     def __validate_observation(self, payload):
         try:
-            return Observation.validate_payload(payload)
+            return Observation.model_validate(payload)
         except ValidationError as e:
-            print(f"Invalid observation: {e}")
+            # to:do : a error class for proper message format
+            for err in e.errors(include_url=False, include_input=False):
+                loc = ".".join(str(p) for p in err["loc"])
+                print(f"{loc}: {err['msg']}")
             return None
 
     def __get_datastream(self, datastream_uuid):

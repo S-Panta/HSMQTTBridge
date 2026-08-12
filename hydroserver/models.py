@@ -15,14 +15,3 @@ class Observation(BaseModel):
     result: float
     phenomenonTime: str
     Datastream: Datastream
-
-    @classmethod
-    def validate_payload(cls, payload):
-        try:
-            return cls.model_validate(payload)
-        except ValidationError as e:
-            # # to:do : a error class for proper message format
-            for err in e.errors(include_url=False, include_input=False):
-                loc = ".".join(str(p) for p in err["loc"])
-                print(f"{loc}: {err['msg']}")
-            return None
