@@ -1,3 +1,3 @@
 [MAIN]
-ignore=.venv
+ignore = .venv, tests
 disable=C0114,C0116,E0401,

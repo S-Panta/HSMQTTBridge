@@ -19,7 +19,7 @@ class MQTTClient:
         self.host = host
         self.port = port
         self.client = None
-        self.publisher = HydroServerPublisher()
+        # self.publisher = HydroServerPublisher()
 
     def connect(self):
         try:
@@ -54,7 +54,7 @@ class MQTTClient:
         # raw byte array (bytes object) is received and therefore decoding before sending to object
         print("this is when a message is fired inside on messsage")
         payload = json.loads(message.payload.decode())
-        self.publisher.post_observation_to_hydroserver(payload)
+        # self.publisher.post_observation_to_hydroserver(payload)
         # self.Observation.post_observation_to_hydroserver(payload)
         # Observation(payload)
         # print(message.topic + "" + str(message.payload))
