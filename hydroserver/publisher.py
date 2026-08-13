@@ -48,6 +48,7 @@ class HydroServerPublisher:
             return Observation.model_validate(payload)
         except ValidationError as e:
             # to:do : a error class for proper message format
+            print("this is the outputtttttttttttttttttt")
             for err in e.errors(include_url=False, include_input=False):
                 loc = ".".join(str(p) for p in err["loc"])
                 print(f"{loc}: {err['msg']}")

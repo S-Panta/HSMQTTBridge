@@ -1,31 +1,16 @@
 from unittest.mock import patch
 import pytest
+from uuid import UUID
 
 from hydroserver.publisher import HydroServerPublisher
 
-# @pytest.fixture
 
-# # def mock_hydroserver():
-
-
-@pytest.fixture
-def valid_payload():
-    return {
+def test_validate_observation_correct_payload():
+    valid_payload = {
         "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d681"},
         "result": 32.1,
         "phenomenonTime": "2026-08-06T17:43:34Z",
     }
-
-
-@pytest.fixture
-def invalid_payload():
-    return {
-        "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d681"},
-        "phenomenonTime": "2026-08-06T17:43:34Z",
-    }
-
-
-def test_validate_observation_correct_payload(valid_payload):
     with patch("hydroserver.publisher.HydroServer"):
         hydroserverpublisher = HydroServerPublisher()
 
@@ -34,28 +19,51 @@ def test_validate_observation_correct_payload(valid_payload):
         )
 
         assert result is not None
+        assert result.result == 32.1
+        assert result.phenomenonTime == "2026-08-06T17:43:34Z"
+        assert result.Datastream.datastream_id == UUID(
+            "019eae3f-3450-70db-b5d2-a55879b4d681"
+        )
 
 
-def test_validate_observation_payload_mismatch(invalid_payload):
+def test_validate_observation_invalid_datastream_id():
+    payload_not_datastream_id = {
+        "Datastream": {"@iot.id": "123"},
+        "result": 32.1,
+        "phenomenonTime": "2026-08-06T17:43:34Z",
+    }
     with patch("hydroserver.publisher.HydroServer"):
         hydroserverpublisher = HydroServerPublisher()
 
         result = hydroserverpublisher._HydroServerPublisher__validate_observation(
-            invalid_payload
+            payload_not_datastream_id
         )
-
         assert result is None
 
 
-def test_validate_observation_wrong_datastream_id():
-    with patch("hydroserver.publisher.HydroServer"):
-        hydroserverpublisher = HydroServerPublisher()
-        invalid_payload = {
-            "Datastream": {"@iot.id": "123"},
+@pytest.mark.parametrize(
+    "missing_payload_key",
+    [
+        {
             "result": 32.1,
             "phenomenonTime": "2026-08-06T17:43:34Z",
-        }
+        },
+        {
+            "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d680"},
+            "phenomenonTime": "2026-08-06T17:43:34Z",
+        },
+        {
+            "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d680"},
+            "result": 32.1,
+        },
+    ],
+)
+def test_validate_observation_missing_required_field(missing_payload_key):
+    with patch("hydroserver.publisher.HydroServer"):
+        hydroserverpublisher = HydroServerPublisher()
+
         result = hydroserverpublisher._HydroServerPublisher__validate_observation(
-            invalid_payload
+            missing_payload_key
         )
-        print(result)
+
+        assert result is None
