@@ -39,16 +39,32 @@ except KeyboardInterrupt:
     client.stop()
 
 publisher = HydroServerPublisher(HYDROSERVER_URL, API_KEY)
-invalid_payload = {
-    "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d682"},
-    "result": 32.1,
-    "phenomenonTime": "2026-08-06T17:43:34Z",
-}
-valid_payload = {
+# invalid_payload = {
+#     "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d682"},
+#     "result": 32.1,
+#     "phenomenonTime": "2026-08-06T17:43:34Z",
+# }
+temperature_campbell_payload = {
     "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d681"},
+    "result": 2000,
+    "phenomenonTime": "2026-08-14 23:21:30",
+}
+
+arduino_temperature_payload = {
+    "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d681"},
+    "result": 22.5,
+    "phenomenonTime": "2026-08-14T21:26:31Z",
+}
+
+ph_payload = {
+    "Datastream": {"@iot.id": "01a0019a-7570-7206-8675-12193e593ba4"},
     "result": 32.1,
     "phenomenonTime": "2026-08-06T17:43:34Z",
 }
 # print(publisher.post_observation_to_hydroserver(invalid_payload))
 # # print("...................................................")
-print(publisher.post_observation_to_hydroserver(invalid_payload))
+print(publisher.post_observation_to_hydroserver(temperature_campbell_payload))
+print("..............................")
+# print(publisher.post_observation_to_hydroserver(ph_payload))
+# print('.........................................................................................')
+# print(publisher.post_observation_to_hydroserver(temperature_payload))
