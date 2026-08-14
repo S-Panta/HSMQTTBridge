@@ -1,4 +1,4 @@
-name: Lint and Test
+name: Lint, Format and Test
 
 on: 
   pull_request:
@@ -26,14 +26,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install pylint
         
-      - name : Formatter
+      - name : Formatting with black
         uses: psf/black@stable
         with:
           options: "--check --diff"
 
-      - name : Linter
+      - name : Linting with pylint
         run: |
-          pylint $(git ls-files '*.py')
+          pylint --verbose $(git ls-files '*.py')
 
   
   pytest:
@@ -50,13 +50,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       - name: Run pytest
-        uses: pavelzw/pytest-action@v2
-        with:
-          job-summary: true
-          verbose: true
-          custom-arguments: '-n=2'
-          emoji: false
+        run: |
+          pytest -v
 
 
 
