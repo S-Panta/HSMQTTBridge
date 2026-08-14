@@ -1,5 +1,6 @@
 # pylint: disable=too-few-public-methods
 from uuid import UUID
+from datetime import datetime
 import requests
 from hydroserverpy import HydroServer
 
@@ -21,7 +22,7 @@ class Observation(BaseModel):
     """Represents a observation payload"""
 
     result: float
-    phenomenonTime: str
+    phenomenonTime: datetime
     Datastream: Datastream
 
 
@@ -30,6 +31,7 @@ class HydroServerPublisher:
 
     def __init__(self, url, api_key):
         self.hydroserver = HydroServer(host=url, apikey=api_key)
+        # This is for storing the datastreams
         self.datastreams = {}
 
     def __validate_observation(self, payload):
@@ -70,7 +72,8 @@ class HydroServerPublisher:
                     "result": [payload.result],
                 }
             )
+            # none response of load_observations means successful POST
             datastream.load_observations(observation)
-
+        # the exceptions here would be for duplicate timestamp reposting
         except requests.exceptions.HTTPError as e:
             print(e)
