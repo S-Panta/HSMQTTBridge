@@ -33,7 +33,7 @@ jobs:
 
       - name : Linting with pylint
         run: |
-          pylint --verbose $(git ls-files '*.py')
+          pylint . --verbose
 
   
   pytest:
