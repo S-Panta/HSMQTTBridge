@@ -45,8 +45,6 @@ class HydroServerPublisher:
         self.datastreams[datastream_uuid] = datastream
         return datastream
 
-        # raise Exception('Request Failed: {}'.format(e)) from None
-
     def post_observation_to_hydroserver(self, payload):
         try:
             payload = self.__validate_observation(payload)
@@ -76,6 +74,3 @@ class HydroServerPublisher:
 
         except requests.exceptions.HTTPError as e:
             print(e)
-
-
-# publisher = HydroServerPublisher()

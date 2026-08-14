@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 from database.connection import DatabaseConnection
 
-# from hydroserver.request import Observation
 from mqtt.consumer import MQTTClient
 from hydroserver.publisher import HydroServerPublisher
 
@@ -31,13 +30,13 @@ PORT = 1883
 client = MQTTClient(HOST, PORT)
 
 
-# try:
-#     client.connect()
-#     while True:
-#         time.sleep(5)
-# except KeyboardInterrupt:
-#     print("mqtt client stopped")
-#     client.stop()
+try:
+    client.connect()
+    while True:
+        time.sleep(5)
+except KeyboardInterrupt:
+    print("mqtt client stopped")
+    client.stop()
 
 publisher = HydroServerPublisher(HYDROSERVER_URL, API_KEY)
 invalid_payload = {
