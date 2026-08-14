@@ -1,10 +1,15 @@
 import time
 import os
+from dotenv import load_dotenv
 
 from database.connection import DatabaseConnection
 
-# from hydroserver.request import Observation
 from mqtt.consumer import MQTTClient
+from hydroserver.publisher import HydroServerPublisher
+
+load_dotenv()
+HYDROSERVER_URL = os.getenv("HYDROSERVER_URL")
+API_KEY = os.getenv("HYDROSERVER_API_KEY")
 
 project_directory = os.path.dirname(os.path.abspath(__file__))
 
@@ -32,3 +37,18 @@ try:
 except KeyboardInterrupt:
     print("mqtt client stopped")
     client.stop()
+
+publisher = HydroServerPublisher(HYDROSERVER_URL, API_KEY)
+invalid_payload = {
+    "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d682"},
+    "result": 32.1,
+    "phenomenonTime": "2026-08-06T17:43:34Z",
+}
+valid_payload = {
+    "Datastream": {"@iot.id": "019eae3f-3450-70db-b5d2-a55879b4d681"},
+    "result": 32.1,
+    "phenomenonTime": "2026-08-06T17:43:34Z",
+}
+# print(publisher.post_observation_to_hydroserver(invalid_payload))
+# # print("...................................................")
+print(publisher.post_observation_to_hydroserver(invalid_payload))

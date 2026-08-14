@@ -2,8 +2,7 @@
 import json
 import paho.mqtt.client as mqtt
 
-
-from hydroserver.publisher import HydroServerPublisher
+# from hydroserver.publisher import HydroServerPublisher
 
 
 class MQTTClient:
@@ -19,7 +18,6 @@ class MQTTClient:
         self.host = host
         self.port = port
         self.client = None
-        self.publisher = HydroServerPublisher()
 
     def connect(self):
         try:
@@ -53,8 +51,8 @@ class MQTTClient:
         # This is where we write what we want to do when message is received
         # raw byte array (bytes object) is received and therefore decoding before sending to object
         print("this is when a message is fired inside on messsage")
-        payload = json.loads(message.payload.decode())
-        self.publisher.post_observation_to_hydroserver(payload)
+        json.loads(message.payload.decode())
+        # self.publisher.post_observation_to_hydroserver(payload)
         # self.Observation.post_observation_to_hydroserver(payload)
         # Observation(payload)
         # print(message.topic + "" + str(message.payload))

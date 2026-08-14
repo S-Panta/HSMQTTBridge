@@ -1,5 +1,10 @@
 black==26.5.1
 paho-mqtt==2.1.0
+pandas==3.0.5
 pylint==4.0.6
+pytest==9.1.1
 requests==2.34.2
+mock==5.2.0
+pydantic==2.13.4
 hydroserverpy==1.10.4
+python-dotenv==1.2.2
