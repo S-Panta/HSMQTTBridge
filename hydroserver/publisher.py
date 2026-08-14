@@ -29,8 +29,8 @@ class Observation(BaseModel):
 class HydroServerPublisher:
     """Class for publishing subscribed information to HydroServer"""
 
-    def __init__(self, url, api_key):
-        self.hydroserver = HydroServer(host=url, apikey=api_key)
+    def __init__(self, base_url, api_key):
+        self.hydroserver = HydroServer(host=base_url, apikey=api_key)
         # This is for storing the datastreams
         self.datastreams = {}
 
@@ -74,6 +74,7 @@ class HydroServerPublisher:
             )
             # none response of load_observations means successful POST
             datastream.load_observations(observation)
+            # print("publihsing done to hydroserverrrrrrrrrrrrrrrrr")
         # the exceptions here would be for duplicate timestamp reposting
         except requests.exceptions.HTTPError as e:
             print(e)
