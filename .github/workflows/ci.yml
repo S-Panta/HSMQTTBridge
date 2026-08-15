@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   format:
+    name: Lint and Format 
     if: '! github.event.pull_request.draft'
     runs-on: ubuntu-latest
     steps:
@@ -38,6 +39,7 @@ jobs:
   
   pytest:
     if: '! github.event.pull_request.draft'
+    name: Unit test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

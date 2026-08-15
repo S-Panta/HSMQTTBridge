@@ -1,34 +1,43 @@
 # pylint: disable=unused-argument
-import json
 import paho.mqtt.client as mqtt
 
-# from hydroserver.publisher import HydroServerPublisher
 
-
+# pylint: disable=too-many-instance-attributes,too-many-arguments,too-many-positional-arguments
 class MQTTClient:
     """Class for MQTT Publish and Subscribe"""
 
-    # to:do: need to remove this in future
     KEEP_ALIVE = 60
-    CLIENT_ID = "bridge_script"
-    TOPIC = "uwrl/cr350/temperature"
 
-    def __init__(self, host, port):
+    def __init__(
+        self,
+        host,
+        topic_prefix,
+        username=None,
+        password=None,
+        port=1883,
+        client_id="pythonbridge",
+        message_handler=None,
+    ):
         self.client = None
         self.host = host
         self.port = port
-        self.client = None
+        self.topic_prefix = topic_prefix
+        self.client_id = client_id
+        self.username = username
+        self.password = password
+        self.message_handler = message_handler
 
     def connect(self):
         try:
             self.client = mqtt.Client(
-                mqtt.CallbackAPIVersion.VERSION2, client_id=self.CLIENT_ID
+                mqtt.CallbackAPIVersion.VERSION2, client_id=self.client_id
             )
             self.client.on_connect = self.on_connect
             self.client.on_message = self.on_message
             self.client.on_subscribe = self.on_subscribe
             self.client.on_disconnect = self.on_disconnect
-            # self.client.username_pw_set()
+            if self.username is not None:
+                self.client.username_pw_set(self.username, self.password)
             print(f"Connecting to {self.host}:{self.port}...")
             self.client.connect(self.host, self.port, self.KEEP_ALIVE)
             self.client.loop_start()
@@ -41,7 +50,10 @@ class MQTTClient:
     def on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code == 0:
             print("Successfully connected!")
-            client.subscribe(self.TOPIC)
+            client.subscribe(self.topic_prefix)
+            # there is no way of knowing how many topic exists in the broker of this prefix
+            # it can be known in self.on_message step
+            print(f"Subscribed to {self.topic_prefix}")
         else:
             print(f"Connection failed: {reason_code}")
 
@@ -50,12 +62,9 @@ class MQTTClient:
     def on_message(self, client, userdata, message):
         # This is where we write what we want to do when message is received
         # raw byte array (bytes object) is received and therefore decoding before sending to object
-        print("this is when a message is fired inside on messsage")
-        json.loads(message.payload.decode())
-        # self.publisher.post_observation_to_hydroserver(payload)
-        # self.Observation.post_observation_to_hydroserver(payload)
-        # Observation(payload)
-        # print(message.topic + "" + str(message.payload))
+        print(f"Received message on: {message.topic}")
+        if self.message_handler:
+            self.message_handler(message.topic, message.payload.decode())
 
     # The callback called when the broker responds to a subscribe request
     def on_subscribe(self, client, userdata, mid, reason_code, properties):
@@ -64,7 +73,11 @@ class MQTTClient:
     def on_disconnect(self, client, userdata, reason_code):
         print("Disconnected with server" + str(reason_code))
 
+    def add_handler(self, handler):
+        self.message_handler = handler
+
     def stop(self):
         if self.client is not None:
+            self.client.disconnect()
             self.client.loop_stop()
             self.client = None
