@@ -60,7 +60,6 @@ class HydroServerPublisher:
 
     def __get_datastream(self, datastream_uuid):
         datastream = self.datastreams.get(datastream_uuid)
-
         if datastream is not None:
             return datastream
 
@@ -74,10 +73,10 @@ class HydroServerPublisher:
         except ValidationError as error:
             # if incoming payload is not correct, it make no sense to either post or store in cache
             # to do: log this in future
-            print(error.errors(include_url=False, include_input=False))
+            # print(error.errors(include_url=False, include_input=False))
             return PublishObservationError.handle_exception(
                 cache_data=False,
-                error=error.errors(include_url=False, include_input=False),
+                error=error,
             )
 
         datastream_uuid = payload.Datastream.datastream_id
@@ -90,6 +89,7 @@ class HydroServerPublisher:
 
         try:
             datastream = self.__get_datastream(datastream_uuid)
+
             datastream.load_observations(observation)
 
         except requests.exceptions.HTTPError as http_error:
@@ -98,14 +98,14 @@ class HydroServerPublisher:
                 http_error.response.status_code if http_error.response else None
             )
 
-            # not all HTTPError should be retried
+            # not all HTTPError response should be retried
             cache_data = status_code == 429
             return PublishObservationError.handle_exception(
                 cache_data=cache_data, error=http_error
             )
 
         except requests.exceptions.RequestException as error:
-            print("http error occurred")
+            print("request exception")
             return PublishObservationError.handle_exception(
                 cache_data=True, error=error
             )
