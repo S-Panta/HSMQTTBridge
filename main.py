@@ -32,17 +32,15 @@ class MQTTBridge:
 
     def route_incoming_message(self, topic, payload):
         try:
-            # print(topic)
-            # print(payload)
-            # print('...................................')
             data = json.loads(payload)
         except json.JSONDecodeError:
             print(f"Bad payload on {topic}: {payload}")
             return
         # for example: topic ending with /lwt could be directed to notification service
         # every observation topic ends with observation name which would make this filtering easy
-        if topic.endswith(("temperature", "pH")):
-            self.hydroserver_publisher.post_observation_to_hydroserver(data)
+        # if topic.endswith(("temperature", "pH")):
+        if topic.endswith("temperature"):
+            print(self.hydroserver_publisher.post_observation_to_hydroserver(data))
 
 
 def setup_database():

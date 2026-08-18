@@ -1,15 +1,13 @@
 # pylint: disable=too-few-public-methods
 from uuid import UUID
 from datetime import datetime
+from typing import NamedTuple
 import requests
 from hydroserverpy import HydroServer
 
 from pydantic import BaseModel, Field, ValidationError
 
-from dotenv import load_dotenv
 import pandas as pd
-
-load_dotenv()
 
 
 class Datastream(BaseModel):
@@ -24,6 +22,29 @@ class Observation(BaseModel):
     result: float
     phenomenonTime: datetime
     Datastream: Datastream
+
+
+class PublishObservationError(NamedTuple):
+    """Represents an error that occurred while publishing an observation to HydroServer."""
+
+    cache_data: bool
+    error_type: str
+    error_message: str
+    status_code: int
+
+    @classmethod
+    def handle_exception(cls, error, cache_data=True):
+        response = getattr(error, "response", None)
+        if response is None:
+            status_code = 0
+        else:
+            status_code = response.status_code
+        return cls(
+            cache_data=cache_data,
+            error_type=type(error).__name__,
+            error_message=str(error),
+            status_code=status_code,
+        )
 
 
 class HydroServerPublisher:
@@ -54,27 +75,38 @@ class HydroServerPublisher:
             # if incoming payload is not correct, it make no sense to either post or store in cache
             # to do: log this in future
             print(error.errors(include_url=False, include_input=False))
-            return
+            return PublishObservationError.handle_exception(
+                cache_data=False,
+                error=error.errors(include_url=False, include_input=False),
+            )
 
         datastream_uuid = payload.Datastream.datastream_id
+        observation = pd.DataFrame(
+            {
+                "phenomenon_time": [payload.phenomenonTime],
+                "result": [payload.result],
+            }
+        )
 
         try:
             datastream = self.__get_datastream(datastream_uuid)
-        except requests.exceptions.HTTPError as e:
-            # the exception can be cause for either incorrect datastream id or incorrect auth
-            print(f"Request failed: {e}")
-            return
-
-        try:
-            observation = pd.DataFrame(
-                {
-                    "phenomenon_time": [payload.phenomenonTime],
-                    "result": [payload.result],
-                }
-            )
-            # none response of load_observations means successful POST
             datastream.load_observations(observation)
-            # print("publihsing done to hydroserverrrrrrrrrrrrrrrrr")
-        # the exceptions here would be for duplicate timestamp reposting
-        except requests.exceptions.HTTPError as e:
-            print(e)
+
+        except requests.exceptions.HTTPError as http_error:
+            print("http error occurred")
+            status_code = (
+                http_error.response.status_code if http_error.response else None
+            )
+
+            # not all HTTPError should be retried
+            cache_data = status_code == 429
+            return PublishObservationError.handle_exception(
+                cache_data=cache_data, error=http_error
+            )
+
+        except requests.exceptions.RequestException as error:
+            print("http error occurred")
+            return PublishObservationError.handle_exception(
+                cache_data=True, error=error
+            )
+        return None
