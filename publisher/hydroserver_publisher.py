@@ -1,13 +1,12 @@
 # pylint: disable=too-few-public-methods
 from uuid import UUID
 from datetime import datetime
-from typing import NamedTuple
 import requests
 from hydroserverpy import HydroServer
 
 from pydantic import BaseModel, Field, ValidationError
-
 import pandas as pd
+from publisher.base_publisher import Publisher, PublishError
 
 
 class Datastream(BaseModel):
@@ -24,30 +23,7 @@ class Observation(BaseModel):
     Datastream: Datastream
 
 
-class PublishObservationError(NamedTuple):
-    """Represents an error that occurred while publishing an observation to HydroServer."""
-
-    cache_data: bool
-    error_type: str
-    error_message: str
-    status_code: int
-
-    @classmethod
-    def handle_exception(cls, error, cache_data=True):
-        response = getattr(error, "response", None)
-        if response is None:
-            status_code = 0
-        else:
-            status_code = response.status_code
-        return cls(
-            cache_data=cache_data,
-            error_type=type(error).__name__,
-            error_message=str(error),
-            status_code=status_code,
-        )
-
-
-class HydroServerPublisher:
+class HydroServerPublisher(Publisher):
     """Class for publishing subscribed information to HydroServer"""
 
     def __init__(self, base_url, api_key):
@@ -67,14 +43,14 @@ class HydroServerPublisher:
         self.datastreams[datastream_uuid] = datastream
         return datastream
 
-    def post_observation_to_hydroserver(self, payload):
+    def push_observation_to_upstream(self, payload):
         try:
             payload = self.__validate_observation(payload)
         except ValidationError as error:
             # if incoming payload is not correct, it make no sense to either post or store in cache
             # to do: log this in future
             # print(error.errors(include_url=False, include_input=False))
-            return PublishObservationError.handle_exception(
+            return PublishError.handle_exception(
                 cache_data=False,
                 error=error,
             )
@@ -100,13 +76,11 @@ class HydroServerPublisher:
 
             # not all HTTPError response should be retried
             cache_data = status_code == 429
-            return PublishObservationError.handle_exception(
+            return PublishError.handle_exception(
                 cache_data=cache_data, error=http_error
             )
 
         except requests.exceptions.RequestException as error:
             print("request exception")
-            return PublishObservationError.handle_exception(
-                cache_data=True, error=error
-            )
+            return PublishError.handle_exception(cache_data=True, error=error)
         return None
