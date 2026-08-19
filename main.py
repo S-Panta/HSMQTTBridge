@@ -26,11 +26,11 @@ MQTT_TOPIC_FILTER = "uwrl/#"
 class MQTTBridge:
     """A bridge between MQTT Subscriber and other services"""
 
-    def __init__(self, hydroserver_publisher, db=None):
+    def __init__(self, hydroserver_publisher, database_connection):
         self.hydroserver_publisher = hydroserver_publisher
-        self.db = db
+        self.database = database_connection
 
-    def route_incoming_message(self, topic, payload):
+    def route_incoming_message_to_upstream(self, topic, payload):
         try:
             data = json.loads(payload)
         except json.JSONDecodeError:
@@ -40,30 +40,24 @@ class MQTTBridge:
         # every observation topic ends with observation name which would make this filtering easy
         # if topic.endswith(("temperature", "pH")):
         if topic.endswith("temperature"):
-            print(self.hydroserver_publisher.post_observation_to_hydroserver(data))
-
-
-def setup_database():
-    connection = DatabaseConnection(DB_PATH)
-    with open(SCHEMA_PATH, "r", encoding="utf-8") as file:
-        sql_script = file.read()
-    connection.execute(sql_script)
-    connection.commit()
-    return connection
+            result = self.hydroserver_publisher.post_observation_to_hydroserver(data)
+            if result.cache_data is True:
+                print("going to databaseeeee")
+                print(data)
+                self.database.insert_pending_observation(data, topic, result)
 
 
 def main():
-    db = setup_database()
-
+    database_connection = DatabaseConnection(DB_PATH)
     hydroserver_publisher = HydroServerPublisher(
         HYDROSERVER_URL,
         API_KEY,
     )
 
-    bridge = MQTTBridge(hydroserver_publisher, db=db)
+    bridge = MQTTBridge(hydroserver_publisher, database_connection)
 
     mqtt = MQTTClient(host=MQTT_HOST, port=MQTT_PORT, topic_prefix=MQTT_TOPIC_FILTER)
-    mqtt.add_handler(bridge.route_incoming_message)
+    mqtt.add_handler(bridge.route_incoming_message_to_upstream)
     mqtt.connect()
     print(f"Connected to MQTT broker at {MQTT_HOST}:{MQTT_PORT}")
 
