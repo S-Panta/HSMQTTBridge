@@ -1,7 +1,8 @@
-import time
 import os
 import json
+import threading
 from dotenv import load_dotenv
+from queue_manager import taskqueue
 
 from database.connection import DatabaseConnection
 from mqtt.consumer import MQTTClient
@@ -12,7 +13,7 @@ load_dotenv()
 HYDROSERVER_URL = os.getenv("HYDROSERVER_URL")
 API_KEY = os.getenv("HYDROSERVER_API_KEY")
 
-MQTT_HOST = "raspberrypi1.mypc.usu.edu"
+MQTT_HOST = "localhost"
 MQTT_PORT = 1883
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,21 +29,25 @@ class MQTTBridge:
         self.hydroserver_publisher = hydroserver_publisher
         self.database = database_connection
 
-    def route_incoming_message_to_upstream(self, topic, payload):
-        try:
-            data = json.loads(payload)
-        except json.JSONDecodeError:
-            print(f"Bad payload on {topic}: {payload}")
-            return
-        # for example: topic ending with /lwt could be directed to notification service
-        # every observation topic ends with observation name which would make this filtering easy
-        # if topic.endswith(("temperature", "pH")):
-        if topic.endswith("temperature"):
-            result = self.hydroserver_publisher.push_observation_to_upstream(data)
-            if result.cache_data is True:
-                print("going to databaseeeee")
-                print(data)
-                self.database.insert_pending_observation(data, topic, result)
+    def route_incoming_message(self):
+        print("running new threads")
+        while True:
+            topic, payload = taskqueue.get()
+            try:
+                data = json.loads(payload)
+            except json.JSONDecodeError:
+                print(f"Bad payload on {topic}: {payload}")
+                continue
+            # for example: topic ending with /lwt could be directed to notification service
+            # every observation topic ends with observation name; this make filtering easy
+            # if topic.endswith(("temperature", "pH")):
+            if topic.endswith("temperature"):
+
+                result = self.hydroserver_publisher.push_observation_to_upstream(data)
+                # time.sleep(35)
+                if result.cache_data is True:
+
+                    self.database.insert_pending_observation(data, topic, result)
 
 
 def main():
@@ -52,16 +57,14 @@ def main():
         API_KEY,
     )
 
-    bridge = MQTTBridge(hydroserver_publisher, database_connection)
-
     mqtt = MQTTClient(host=MQTT_HOST, port=MQTT_PORT, topic_prefix=MQTT_TOPIC_FILTER)
-    mqtt.add_handler(bridge.route_incoming_message_to_upstream)
-    mqtt.connect()
-    print(f"Connected to MQTT broker at {MQTT_HOST}:{MQTT_PORT}")
 
+    bridge = MQTTBridge(hydroserver_publisher, database_connection)
+    worker = threading.Thread(target=bridge.route_incoming_message, daemon=True)
+    worker.start()
     try:
-        while True:
-            time.sleep(5)
+        mqtt.connect()
+        mqtt.loop_forever()
     except KeyboardInterrupt:
         print("Shutting down...")
         mqtt.stop()

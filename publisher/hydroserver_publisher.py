@@ -63,6 +63,7 @@ class HydroServerPublisher(Publisher):
         )
 
         try:
+
             datastream = self.__get_datastream(datastream_uuid)
 
             datastream.load_observations(observation)

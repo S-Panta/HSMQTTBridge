@@ -27,6 +27,7 @@ class DatabaseConnection:
                 error_type TEXT,
                 error_message TEXT,
                 status_code INTEGER,
+                retry_count INTEGER NOT NULL DEFAULT 0,
                 last_retry TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
