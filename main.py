@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from database.connection import DatabaseConnection
 from mqtt.consumer import MQTTClient
-from hydroserver.publisher import HydroServerPublisher
+from publisher.hydroserver_publisher import HydroServerPublisher
 
 load_dotenv()
 
@@ -17,12 +17,10 @@ MQTT_PORT = 1883
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(PROJECT_DIR, "data", "observation.db")
-SCHEMA_PATH = os.path.join(PROJECT_DIR, "database", "createtable.sql")
 
 MQTT_TOPIC_FILTER = "uwrl/#"
 
 
-# pylint: disable=too-few-public-methods
 class MQTTBridge:
     """A bridge between MQTT Subscriber and other services"""
 
@@ -40,7 +38,7 @@ class MQTTBridge:
         # every observation topic ends with observation name which would make this filtering easy
         # if topic.endswith(("temperature", "pH")):
         if topic.endswith("temperature"):
-            result = self.hydroserver_publisher.post_observation_to_hydroserver(data)
+            result = self.hydroserver_publisher.push_observation_to_upstream(data)
             if result.cache_data is True:
                 print("going to databaseeeee")
                 print(data)
