@@ -6,12 +6,12 @@ import requests
 import pytest
 from pydantic import ValidationError
 
-from hydroserver.publisher import HydroServerPublisher, PublishObservationError
+from publisher.hydroserver_publisher import HydroServerPublisher, PublishError
 
 
 @pytest.fixture
 def hydroserver_publisher():
-    with patch("hydroserver.publisher.HydroServer"):
+    with patch("publisher.hydroserver_publisher.HydroServer"):
         yield HydroServerPublisher(
             "https://test.hydroserver.com",
             "test-api-key",
@@ -150,15 +150,15 @@ def test_get_datastream_multiple_hydroserver_request_for_different_datastream(
 def test_post_observation_to_hydroserver(observation_payload, hydroserver_publisher):
     datastream = hydroserver_publisher.hydroserver.datastreams.get.return_value
 
-    result = hydroserver_publisher.post_observation_to_hydroserver(observation_payload)
+    result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
     assert result is None
     datastream.load_observations.assert_called_once()
 
 
 def test_invalid_observation_is_not_cached(observation_payload, hydroserver_publisher):
     observation_payload["phenomenonTime"] = "not-a-valid-datetime"
-    result = hydroserver_publisher.post_observation_to_hydroserver(observation_payload)
-    assert isinstance(result, PublishObservationError)
+    result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
+    assert isinstance(result, PublishError)
     assert result.status_code == 0
     assert result.error_type == "ValidationError"
     assert result.cache_data is False
@@ -188,9 +188,7 @@ def test_valid_observation_for_all_http_errors(
         "_HydroServerPublisher__get_datastream",
         return_value=datastream,
     ):
-        result = hydroserver_publisher.post_observation_to_hydroserver(
-            observation_payload
-        )
+        result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
     assert result.error_type == "HTTPError"
     assert result.cache_data is cache_data
 
@@ -209,9 +207,7 @@ def test_post_observation_caches_observation_on_request_exception(
         "_HydroServerPublisher__get_datastream",
         return_value=datastream,
     ):
-        result = hydroserver_publisher.post_observation_to_hydroserver(
-            observation_payload
-        )
+        result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
     assert result.error_type == "RequestException"
     assert result.cache_data is True
 
@@ -226,7 +222,7 @@ def test_post_observation_datastream_not_found_in_hydroserver(
     )
     http_error.response = response
     hydroserver_publisher.hydroserver.datastreams.get.side_effect = http_error
-    result = hydroserver_publisher.post_observation_to_hydroserver(observation_payload)
+    result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
     assert result.error_type == "HTTPError"
     assert result.cache_data is False
 
@@ -234,7 +230,7 @@ def test_post_observation_datastream_not_found_in_hydroserver(
 def test_post_observation_reuses_cached_datastream_for_same_datastream(
     observation_payload, hydroserver_publisher
 ):
-    hydroserver_publisher.post_observation_to_hydroserver(observation_payload)
-    hydroserver_publisher.post_observation_to_hydroserver(observation_payload)
+    hydroserver_publisher.push_observation_to_upstream(observation_payload)
+    hydroserver_publisher.push_observation_to_upstream(observation_payload)
     hydroserver_publisher.hydroserver.datastreams.get.assert_called_once()
     assert len(hydroserver_publisher.datastreams) == 1

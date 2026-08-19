@@ -1,4 +1,3 @@
-# pylint: disable=too-few-public-methods
 from uuid import UUID
 from datetime import datetime
 import requests

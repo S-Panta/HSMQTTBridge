@@ -2,7 +2,6 @@ import json
 import sqlite3
 
 
-# pylint: disable=too-few-public-methods
 class DatabaseConnection:
     """Class to wrap SQLite database operations."""
 
