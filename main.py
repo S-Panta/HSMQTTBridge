@@ -4,9 +4,11 @@ import threading
 from dotenv import load_dotenv
 from queue_manager import taskqueue
 
-from database.connection import DatabaseConnection
+from database.pending_observation import PendingObservation
 from mqtt.consumer import MQTTClient
-from publisher.hydroserver_publisher import HydroServerPublisher
+from publisher.hydroserver.hydroserver_publisher import HydroServerPublisher
+
+# from publisher.hydroserver.retry_worker import RetryWorker
 
 load_dotenv()
 
@@ -25,9 +27,9 @@ MQTT_TOPIC_FILTER = "uwrl/#"
 class MQTTBridge:
     """A bridge between MQTT Subscriber and other services"""
 
-    def __init__(self, hydroserver_publisher, database_connection):
+    def __init__(self, hydroserver_publisher, pending_observation):
         self.hydroserver_publisher = hydroserver_publisher
-        self.database = database_connection
+        self.pending_observation = pending_observation
 
     def route_incoming_message(self):
         print("running new threads")
@@ -47,11 +49,13 @@ class MQTTBridge:
                 # time.sleep(35)
                 if result.cache_data is True:
 
-                    self.database.insert_pending_observation(data, topic, result)
+                    self.pending_observation.insert_observation(data, topic, result)
 
 
 def main():
-    database_connection = DatabaseConnection(DB_PATH)
+
+    pending_observation = PendingObservation(DB_PATH)
+    # retry_worker = RetryWorker(pending_observation)
     hydroserver_publisher = HydroServerPublisher(
         HYDROSERVER_URL,
         API_KEY,
@@ -59,7 +63,7 @@ def main():
 
     mqtt = MQTTClient(host=MQTT_HOST, port=MQTT_PORT, topic_prefix=MQTT_TOPIC_FILTER)
 
-    bridge = MQTTBridge(hydroserver_publisher, database_connection)
+    bridge = MQTTBridge(hydroserver_publisher, pending_observation)
     worker = threading.Thread(target=bridge.route_incoming_message, daemon=True)
     worker.start()
     try:

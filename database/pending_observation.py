@@ -2,7 +2,7 @@ import json
 import sqlite3
 
 
-class DatabaseConnection:
+class PendingObservation:
     """Class to wrap SQLite database operations."""
 
     def __init__(self, path):
@@ -32,7 +32,7 @@ class DatabaseConnection:
             )
         """)
 
-    def insert_pending_observation(self, observation, topic, error):
+    def insert_observation(self, observation, topic, error):
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """
@@ -51,5 +51,36 @@ class DatabaseConnection:
                     error.error_type,
                     error.error_message,
                     error.status_code,
+                ),
+            )
+
+    def get_all_observation(self):
+        with sqlite3.connect(self.path) as connection:
+            cursor = connection.execute("""SELECT id, observation, topic, retry_count 
+                FROM PendingObservation ORDER BY id ASC
+                """)
+            return cursor.fetchall()
+
+    def delete_observation(self, row_id):
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("DELETE FROM PendingObservation WHERE id = ?", (row_id,))
+
+    def mark_observation_as_pending(self, row_id, error):
+        with sqlite3.connect(self.path) as connection:
+            connection.execute(
+                """
+                        UPDATE PendingObservation
+                        SET retry_count = retry_count + 1,
+                            last_retry = CURRENT_TIMESTAMP,
+                            error_type = ?,
+                            error_message = ?,
+                            status_code = ?
+                        WHERE id = ?
+                        """,
+                (
+                    error.error_type,
+                    error.error_message,
+                    error.status_code,
+                    row_id,
                 ),
             )

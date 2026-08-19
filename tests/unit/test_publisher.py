@@ -6,7 +6,10 @@ import requests
 import pytest
 from pydantic import ValidationError
 
-from publisher.hydroserver_publisher import HydroServerPublisher, PublishError
+from publisher.hydroserver.hydroserver_publisher import (
+    HydroServerPublisher,
+    PublishError,
+)
 
 
 @pytest.fixture
