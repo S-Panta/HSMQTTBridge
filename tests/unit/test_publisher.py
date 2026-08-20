@@ -6,12 +6,15 @@ import requests
 import pytest
 from pydantic import ValidationError
 
-from publisher.hydroserver_publisher import HydroServerPublisher, PublishError
+from publisher.hydroserver.hydroserver_publisher import (
+    HydroServerPublisher,
+    PublishError,
+)
 
 
 @pytest.fixture
 def hydroserver_publisher():
-    with patch("publisher.hydroserver_publisher.HydroServer"):
+    with patch("publisher.hydroserver.hydroserver_publisher.HydroServer"):
         yield HydroServerPublisher(
             "https://test.hydroserver.com",
             "test-api-key",

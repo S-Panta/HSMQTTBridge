@@ -1,12 +1,13 @@
 # pylint: disable=unused-argument
 import paho.mqtt.client as mqtt
+from queue_manager import taskqueue
 
 
 # pylint: disable=too-many-instance-attributes,too-many-arguments,too-many-positional-arguments
 class MQTTClient:
     """Class for MQTT Publish and Subscribe"""
 
-    KEEP_ALIVE = 60
+    KEEP_ALIVE = 10
 
     def __init__(
         self,
@@ -16,7 +17,6 @@ class MQTTClient:
         password=None,
         port=1883,
         client_id="pythonbridge",
-        message_handler=None,
     ):
         self.client = None
         self.host = host
@@ -25,13 +25,14 @@ class MQTTClient:
         self.client_id = client_id
         self.username = username
         self.password = password
-        self.message_handler = message_handler
 
     def connect(self):
         try:
+
             self.client = mqtt.Client(
                 mqtt.CallbackAPIVersion.VERSION2, client_id=self.client_id
             )
+            # all these callbacks runs on same network thread because of loop_start()
             self.client.on_connect = self.on_connect
             self.client.on_message = self.on_message
             self.client.on_subscribe = self.on_subscribe
@@ -40,7 +41,6 @@ class MQTTClient:
                 self.client.username_pw_set(self.username, self.password)
             print(f"Connecting to {self.host}:{self.port}...")
             self.client.connect(self.host, self.port, self.KEEP_ALIVE)
-            self.client.loop_start()
 
         # pylint: disable-next=broad-exception-caught
         except Exception as e:
@@ -62,22 +62,28 @@ class MQTTClient:
     def on_message(self, client, userdata, message):
         # This is where we write what we want to do when message is received
         # raw byte array (bytes object) is received and therefore decoding before sending to object
-        print(f"Received message on: {message.topic}")
-        if self.message_handler:
-            self.message_handler(message.topic, message.payload.decode())
+        taskqueue.put((message.topic, message.payload.decode()))
+        # if self.message_handler:
+        #     self.message_handler(message.topic, message.payload.decode())
 
     # The callback called when the broker responds to a subscribe request
     def on_subscribe(self, client, userdata, mid, reason_code, properties):
         print("subscribe on" + str(mid))
 
-    def on_disconnect(self, client, userdata, reason_code):
-        print("Disconnected with server" + str(reason_code))
-
-    def add_handler(self, handler):
-        self.message_handler = handler
+    def on_disconnect(
+        self, client, userdata, disconnect_flags, reason_code, properties
+    ):
+        print(
+            f"Disconnected with server: "
+            f"reason={reason_code}, "
+            f"flags={disconnect_flags}"
+        )
 
     def stop(self):
         if self.client is not None:
             self.client.disconnect()
             self.client.loop_stop()
             self.client = None
+
+    def loop_forever(self):
+        self.client.loop_forever()
