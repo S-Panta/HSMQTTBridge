@@ -1,9 +1,8 @@
-# pylint: disable=unused-argument
+# pylint: disable=unused-argument,too-many-instance-attributes,too-many-arguments,too-many-positional-arguments
 import paho.mqtt.client as mqtt
 from queue_manager import taskqueue
 
 
-# pylint: disable=too-many-instance-attributes,too-many-arguments,too-many-positional-arguments
 class MQTTClient:
     """Class for MQTT Publish and Subscribe"""
 
@@ -62,9 +61,8 @@ class MQTTClient:
     def on_message(self, client, userdata, message):
         # This is where we write what we want to do when message is received
         # raw byte array (bytes object) is received and therefore decoding before sending to object
+        # print(message.payload.decode())
         taskqueue.put((message.topic, message.payload.decode()))
-        # if self.message_handler:
-        #     self.message_handler(message.topic, message.payload.decode())
 
     # The callback called when the broker responds to a subscribe request
     def on_subscribe(self, client, userdata, mid, reason_code, properties):

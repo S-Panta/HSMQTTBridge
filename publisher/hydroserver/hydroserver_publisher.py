@@ -43,6 +43,28 @@ class HydroServerPublisher(Publisher):
         self.datastreams[datastream_uuid] = datastream
         return datastream
 
+    def __load_observation(self, datastream_uuid, observations):
+        try:
+            datastream = self.__get_datastream(datastream_uuid)
+            datastream.load_observations(observations)
+
+        except requests.exceptions.HTTPError as http_error:
+            print("http error occurred")
+            print(http_error)
+            status_code = (
+                http_error.response.status_code if http_error.response else None
+            )
+            # not all HTTPError response should be retried
+            cache_data = status_code == 429
+            return PublishError.handle_exception(
+                cache_data=cache_data, error=http_error
+            )
+
+        except requests.exceptions.RequestException as error:
+            print("request exception")
+            return PublishError.handle_exception(cache_data=True, error=error)
+        return None
+
     def push_observation_to_upstream(self, payload):
         try:
             payload = self.__validate_observation(payload)
@@ -62,27 +84,21 @@ class HydroServerPublisher(Publisher):
                 "result": [payload.result],
             }
         )
+        return self.__load_observation(datastream_uuid, observation)
 
-        try:
-
-            datastream = self.__get_datastream(datastream_uuid)
-
-            datastream.load_observations(observation)
-
-        except requests.exceptions.HTTPError as http_error:
-            print("http error occurred")
-            print(http_error)
-            status_code = (
-                http_error.response.status_code if http_error.response else None
-            )
-
-            # not all HTTPError response should be retried
-            cache_data = status_code == 429
-            return PublishError.handle_exception(
-                cache_data=cache_data, error=http_error
-            )
-
-        except requests.exceptions.RequestException as error:
-            print("request exception")
-            return PublishError.handle_exception(cache_data=True, error=error)
-        return None
+    def batch_upload(self, chunked_payload):
+        """This operation is for retry worker
+        HTTP 404 and other error data are thrown out in earlier process.
+        Thus,parsing and getting getdatastream error verification is not needed
+        """
+        datastream_id = chunked_payload[0].observation["Datastream"]["@iot.id"]
+        observations = pd.DataFrame(
+            [
+                {
+                    "phenomenon_time": obs.observation["phenomenonTime"],
+                    "result": obs.observation["result"],
+                }
+                for obs in chunked_payload
+            ]
+        )
+        return self.__load_observation(datastream_id, observations)

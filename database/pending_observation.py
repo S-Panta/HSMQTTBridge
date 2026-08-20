@@ -84,15 +84,17 @@ class PendingObservationStore:
                 for row in rows
             ]
 
-    def delete(self, observation_id):
+    def delete(self, observations):
         with sqlite3.connect(self.path) as connection:
-            connection.execute(
-                "DELETE FROM PendingObservation WHERE id = ?", (observation_id,)
+            connection.executemany(
+                "DELETE FROM PendingObservation WHERE id = ?",
+                ((observation.id,) for observation in observations),
             )
 
-    def mark_observation_as_pending(self, observation_id, error):
+    def mark_observation_as_pending(self, observations, error):
+        print(observations)
         with sqlite3.connect(self.path) as connection:
-            connection.execute(
+            connection.executemany(
                 """
                         UPDATE PendingObservation
                         SET retry_count = retry_count + 1,
@@ -103,9 +105,12 @@ class PendingObservationStore:
                         WHERE id = ?
                         """,
                 (
-                    error.error_type,
-                    error.error_message,
-                    error.status_code,
-                    observation_id,
+                    (
+                        error.error_type,
+                        error.error_message,
+                        error.status_code,
+                        observation.id,
+                    )
+                    for observation in observations
                 ),
             )
