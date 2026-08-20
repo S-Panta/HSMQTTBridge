@@ -84,11 +84,13 @@ class PendingObservationStore:
                 for row in rows
             ]
 
-    def delete_observation(self, row_id):
+    def delete(self, observation_id):
         with sqlite3.connect(self.path) as connection:
-            connection.execute("DELETE FROM PendingObservation WHERE id = ?", (row_id,))
+            connection.execute(
+                "DELETE FROM PendingObservation WHERE id = ?", (observation_id,)
+            )
 
-    def mark_observation_as_pending(self, row_id, error):
+    def mark_observation_as_pending(self, observation_id, error):
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """
@@ -104,6 +106,6 @@ class PendingObservationStore:
                     error.error_type,
                     error.error_message,
                     error.status_code,
-                    row_id,
+                    observation_id,
                 ),
             )

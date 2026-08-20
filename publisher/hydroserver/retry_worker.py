@@ -31,11 +31,14 @@ class RetryWorker:
     def repost_into_hydroserver(self):
         observations = self.get_pending_observations()
         for pending in observations:
-            print(
-                hydroserver_publisher.push_observation_to_upstream(pending.observation)
+            result = hydroserver_publisher.push_observation_to_upstream(
+                pending.observation
             )
+            if result is None:
+                self.database.delete(pending.id)
+            else:
+                self.database.mark_observation_as_pending(pending.id, result)
 
 
 worker = RetryWorker()
-
-print(worker.repost_into_hydroserver())
+worker.repost_into_hydroserver()

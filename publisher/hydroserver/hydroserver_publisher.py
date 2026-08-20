@@ -37,8 +37,6 @@ class HydroServerPublisher(Publisher):
         datastream = self.datastreams.get(datastream_uuid)
         if datastream is not None:
             return datastream
-        print(datastream_uuid)
-        print("fetching the datastream")
 
         datastream = self.hydroserver.datastreams.get(datastream_uuid)
 
