@@ -4,7 +4,7 @@ import threading
 from dotenv import load_dotenv
 from queue_manager import taskqueue
 
-from database.pending_observation import PendingObservation
+from database.pending_observation import PendingObservationStore
 from mqtt.consumer import MQTTClient
 from publisher.hydroserver.hydroserver_publisher import HydroServerPublisher
 
@@ -46,15 +46,13 @@ class MQTTBridge:
             if topic.endswith("temperature"):
 
                 result = self.hydroserver_publisher.push_observation_to_upstream(data)
-                # time.sleep(35)
-                if result.cache_data is True:
+                if result and result.cache_data is True:
 
-                    self.pending_observation.insert_observation(data, topic, result)
+                    self.pending_observation.insert(data, topic, result)
 
 
 def main():
-
-    pending_observation = PendingObservation(DB_PATH)
+    pending_observation = PendingObservationStore(DB_PATH)
     # retry_worker = RetryWorker(pending_observation)
     hydroserver_publisher = HydroServerPublisher(
         HYDROSERVER_URL,

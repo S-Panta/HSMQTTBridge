@@ -37,8 +37,11 @@ class HydroServerPublisher(Publisher):
         datastream = self.datastreams.get(datastream_uuid)
         if datastream is not None:
             return datastream
+        print(datastream_uuid)
+        print("fetching the datastream")
 
         datastream = self.hydroserver.datastreams.get(datastream_uuid)
+
         self.datastreams[datastream_uuid] = datastream
         return datastream
 
@@ -54,7 +57,7 @@ class HydroServerPublisher(Publisher):
                 error=error,
             )
 
-        datastream_uuid = payload.Datastream.datastream_id
+        datastream_uuid = str(payload.Datastream.datastream_id)
         observation = pd.DataFrame(
             {
                 "phenomenon_time": [payload.phenomenonTime],
@@ -70,6 +73,7 @@ class HydroServerPublisher(Publisher):
 
         except requests.exceptions.HTTPError as http_error:
             print("http error occurred")
+            print(http_error)
             status_code = (
                 http_error.response.status_code if http_error.response else None
             )

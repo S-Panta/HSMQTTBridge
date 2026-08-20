@@ -1,8 +1,9 @@
 import json
 import sqlite3
+from database.model import PendingObservation
 
 
-class PendingObservation:
+class PendingObservationStore:
     """Class to wrap SQLite database operations."""
 
     def __init__(self, path):
@@ -32,7 +33,7 @@ class PendingObservation:
             )
         """)
 
-    def insert_observation(self, observation, topic, error):
+    def insert(self, observation, topic, error):
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """
@@ -54,12 +55,34 @@ class PendingObservation:
                 ),
             )
 
-    def get_all_observation(self):
+    def fetch_all(self):
         with sqlite3.connect(self.path) as connection:
-            cursor = connection.execute("""SELECT id, observation, topic, retry_count 
-                FROM PendingObservation ORDER BY id ASC
-                """)
-            return cursor.fetchall()
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute("""
+                SELECT
+                    id,
+                    observation,
+                    topic,
+                    error_type,
+                    error_message,
+                    status_code,
+                    retry_count,
+                    last_retry
+                FROM PendingObservation
+                ORDER BY id ASC
+            """).fetchall()
+            return [
+                PendingObservation(
+                    id=row["id"],
+                    observation=json.loads(row["observation"]),
+                    topic=row["topic"],
+                    error_type=row["error_type"],
+                    error_message=row["error_message"],
+                    status_code=row["status_code"],
+                    retry_count=row["retry_count"],
+                )
+                for row in rows
+            ]
 
     def delete_observation(self, row_id):
         with sqlite3.connect(self.path) as connection:
