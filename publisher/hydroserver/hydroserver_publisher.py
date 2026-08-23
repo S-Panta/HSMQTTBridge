@@ -1,25 +1,11 @@
-from uuid import UUID
-from datetime import datetime
 import requests
 from hydroserverpy import HydroServer
 
-from pydantic import BaseModel, Field, ValidationError
 import pandas as pd
+from pydantic import ValidationError
+
 from publisher.base_publisher import Publisher, PublishError
-
-
-class Datastream(BaseModel):
-    """Represents a datastream identifier"""
-
-    datastream_id: UUID = Field(alias="@iot.id")
-
-
-class Observation(BaseModel):
-    """Represents a observation payload"""
-
-    result: float
-    phenomenonTime: datetime
-    Datastream: Datastream
+from publisher.hydroserver.models import Observation
 
 
 class HydroServerPublisher(Publisher):
@@ -50,7 +36,7 @@ class HydroServerPublisher(Publisher):
 
         except requests.exceptions.HTTPError as http_error:
             print("http error occurred")
-            print(http_error)
+            # print(http_error)
             status_code = (
                 http_error.response.status_code if http_error.response else None
             )

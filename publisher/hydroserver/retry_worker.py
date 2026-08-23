@@ -1,54 +1,61 @@
-import os
+# pylint: disable=broad-exception-caught
 from collections import defaultdict
-from dotenv import load_dotenv
-from database.pending_observation import PendingObservationStore
-from publisher.hydroserver.hydroserver_publisher import HydroServerPublisher
-
-PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
-load_dotenv()
-
-HYDROSERVER_URL = os.getenv("HYDROSERVER_URL")
-API_KEY = os.getenv("HYDROSERVER_API_KEY")
-
-DB_PATH = os.path.join(PROJECT_DIR, "data", "observation.db")
-
-hydroserver_publisher = HydroServerPublisher(
-    HYDROSERVER_URL,
-    API_KEY,
-)
+import threading
 
 
 class RetryWorker:
     """class for implementation of retry worker"""
 
-    def __init__(self):
-        self.database = PendingObservationStore(DB_PATH)
-        self.hydroserver_publisher = hydroserver_publisher
+    MAX_ATTENPTS = 4
 
-    def get_pending_observations(self):
+    def __init__(self, database, hydroserver, interval=30 * 60):
+        self.database = database
+        self.hydroserver_publisher = hydroserver
+        self.interval = interval
+        self._stop_event = threading.Event()
+
+    def run(self):
+        while not self._stop_event.is_set():
+            try:
+                print("Running retry worker")
+                self.post_into_hydroserver()
+            except Exception as e:
+                print(f"Retry worker error: {e}")
+            self._stop_event.wait(self.interval)
+
+    def stop(self):
+        # Unblocks the worker thread
+        self._stop_event.set()
+
+    def __get_failed_observations(self):
         return self.database.fetch_all()
 
-    def __chunk_database_response(self, observations):
-        chunk_list = defaultdict(list)
+    def __group_observations_by_topic(self, observations):
+        chunks = defaultdict(list)
         for observation in observations:
-            chunk_list[observation.topic].append(observation)
-        return chunk_list
+            if observation.retry_count >= self.MAX_ATTENPTS:
+                print("skipping the post observation to hydroserver")
+                continue
+            chunks[observation.topic].append(observation)
+        return chunks
 
-    def repost_into_hydroserver(self):
-        observations = self.get_pending_observations()
-        chunk_list = self.__chunk_database_response(observations)
-        chunks = list(chunk_list.values())
-        print(f"there are {len(chunks)} chunks.")
-        for i, chunk in enumerate(chunks, start=1):
-            print(f"Posting {i} chunks to hydroserver")
-            request = hydroserver_publisher.batch_upload(chunk)
-            if request is not None:
-                self.database.mark_observation_as_pending(chunk, request)
-            else:
-                self.database.delete(chunk)
-            print("one step done; one chunk completed")
-
-
-worker = RetryWorker()
-worker.repost_into_hydroserver()
+    def post_into_hydroserver(self):
+        observations = self.__get_failed_observations()
+        chunks = self.__group_observations_by_topic(observations)
+        print(f"There are {len(chunks)} chunks.")
+        for i, (topic, chunk) in enumerate(chunks.items(), start=1):
+            try:
+                print(
+                    f"Posting chunk {i}/{len(chunks)} "
+                    f" Topic {topic} ({len(chunk)} observations) "
+                    f"to HydroServer"
+                )
+                result = self.hydroserver_publisher.batch_upload(chunk)
+                # A successful hydroserver post returns no value
+                if result is not None:
+                    self.database.update_observation_retry(chunk, result)
+                else:
+                    # once successful post is done, the data is deleted from local database
+                    self.database.delete(chunk)
+            except Exception as e:
+                print(f"Error processing chunk {i}: {e}")

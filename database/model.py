@@ -1,13 +1,13 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass
-class PendingObservation:
-    """data class for representing observation pending to store in upstream repository"""
+class FailedObservation:
+    """Represents an observation that failed upstream upload."""
 
     id: int
-    observation: str
+    observation: dict[str, Any]
     topic: str
     error_type: Optional[str] = None
     error_message: Optional[str] = None

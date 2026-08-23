@@ -38,7 +38,7 @@ class MQTTClient:
             self.client.on_disconnect = self.on_disconnect
             if self.username is not None:
                 self.client.username_pw_set(self.username, self.password)
-            print(f"Connecting to {self.host}:{self.port}...")
+            print(f"Connecting to {self.host}:{self.port}")
             self.client.connect(self.host, self.port, self.KEEP_ALIVE)
 
         # pylint: disable-next=broad-exception-caught
