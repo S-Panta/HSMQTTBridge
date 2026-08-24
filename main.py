@@ -1,14 +1,12 @@
 import os
-import json
 import threading
 from dotenv import load_dotenv
-from queue_manager import taskqueue
 
-from database.pending_observation import PendingObservationStore
+from database.failed_observation_store import FailedObservationStore
 from mqtt.consumer import MQTTClient
+from message_router import MessageRouter
 from publisher.hydroserver.hydroserver_publisher import HydroServerPublisher
-
-# from publisher.hydroserver.retry_worker import RetryWorker
+from publisher.hydroserver.retry_worker import RetryWorker
 
 load_dotenv()
 
@@ -24,36 +22,8 @@ DB_PATH = os.path.join(PROJECT_DIR, "data", "observation.db")
 MQTT_TOPIC_FILTER = "uwrl/#"
 
 
-class MQTTBridge:
-    """A bridge between MQTT Subscriber and other services"""
-
-    def __init__(self, hydroserver_publisher, pending_observation):
-        self.hydroserver_publisher = hydroserver_publisher
-        self.pending_observation = pending_observation
-
-    def route_incoming_message(self):
-        print("running new threads")
-        while True:
-            topic, payload = taskqueue.get()
-            try:
-                data = json.loads(payload)
-            except json.JSONDecodeError:
-                print(f"Bad payload on {topic}: {payload}")
-                continue
-            # for example: topic ending with /lwt could be directed to notification service
-            # every observation topic ends with observation name; this make filtering easy
-            # if topic.endswith(("temperature", "pH")):
-            if topic.endswith("temperature"):
-
-                result = self.hydroserver_publisher.push_observation_to_upstream(data)
-                if result and result.cache_data is True:
-
-                    self.pending_observation.insert(data, topic, result)
-
-
 def main():
-    pending_observation = PendingObservationStore(DB_PATH)
-    # retry_worker = RetryWorker(pending_observation)
+    failed_observation = FailedObservationStore(DB_PATH)
     hydroserver_publisher = HydroServerPublisher(
         HYDROSERVER_URL,
         API_KEY,
@@ -61,15 +31,20 @@ def main():
 
     mqtt = MQTTClient(host=MQTT_HOST, port=MQTT_PORT, topic_prefix=MQTT_TOPIC_FILTER)
 
-    bridge = MQTTBridge(hydroserver_publisher, pending_observation)
-    worker = threading.Thread(target=bridge.route_incoming_message, daemon=True)
+    router = MessageRouter(hydroserver_publisher, failed_observation)
+    worker = threading.Thread(target=router.route_incoming_message, daemon=True)
     worker.start()
+    retry_worker = RetryWorker(failed_observation, hydroserver_publisher)
+    retry_worker_thread = threading.Thread(target=retry_worker.run, daemon=True)
+    retry_worker_thread.start()
     try:
         mqtt.connect()
         mqtt.loop_forever()
     except KeyboardInterrupt:
-        print("Shutting down...")
+        print("Shutting down")
         mqtt.stop()
+        retry_worker.stop()
+        retry_worker_thread.join()
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 import json
 import sqlite3
-from database.model import PendingObservation
+from database.model import FailedObservation
 
 
-class PendingObservationStore:
+class FailedObservationStore:
     """Class to wrap SQLite database operations."""
 
     def __init__(self, path):
@@ -21,7 +21,7 @@ class PendingObservationStore:
 
     def _initialize_db(self, connection):
         connection.execute("""
-            CREATE TABLE IF NOT EXISTS PendingObservation (
+            CREATE TABLE IF NOT EXISTS failed_observation (
                 id INTEGER PRIMARY KEY,
                 observation TEXT NOT NULL,
                 topic TEXT NOT NULL,
@@ -37,7 +37,7 @@ class PendingObservationStore:
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """
-                INSERT INTO PendingObservation (
+                INSERT INTO failed_observation (
                     topic,
                     observation,
                     error_type,
@@ -68,11 +68,11 @@ class PendingObservationStore:
                     status_code,
                     retry_count,
                     last_retry
-                FROM PendingObservation
+                FROM failed_observation
                 ORDER BY id ASC
             """).fetchall()
             return [
-                PendingObservation(
+                FailedObservation(
                     id=row["id"],
                     observation=json.loads(row["observation"]),
                     topic=row["topic"],
@@ -87,16 +87,15 @@ class PendingObservationStore:
     def delete(self, observations):
         with sqlite3.connect(self.path) as connection:
             connection.executemany(
-                "DELETE FROM PendingObservation WHERE id = ?",
+                "DELETE FROM failed_observation WHERE id = ?",
                 ((observation.id,) for observation in observations),
             )
 
-    def mark_observation_as_pending(self, observations, error):
-        print(observations)
+    def update_observation_retry(self, observations, error):
         with sqlite3.connect(self.path) as connection:
             connection.executemany(
                 """
-                        UPDATE PendingObservation
+                        UPDATE failed_observation
                         SET retry_count = retry_count + 1,
                             last_retry = CURRENT_TIMESTAMP,
                             error_type = ?,
