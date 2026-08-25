@@ -1,5 +1,6 @@
 import os
 import threading
+
 from dotenv import load_dotenv
 
 from database.failed_observation_store import FailedObservationStore
