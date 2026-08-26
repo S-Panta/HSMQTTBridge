@@ -1,6 +1,9 @@
 import json
+import logging
 import sqlite3
 from database.model import FailedObservation
+
+logger = logging.getLogger(__name__)
 
 
 class FailedObservationStore:
@@ -14,10 +17,12 @@ class FailedObservationStore:
                 connection.execute("PRAGMA journal_mode = WAL")
                 self._initialize_db(connection)
 
-            print("Connected to sqlite database is successful")
+            logger.info("Connected to sqlite database: %s", self.path)
 
         except sqlite3.Error as e:
-            print(f"Connected to sqlite database failed: {e}")
+            logger.exception(
+                "Failed to connect to sqlite database: %s . Error: %s", self.path, e
+            )
 
     def _initialize_db(self, connection):
         connection.execute("""
@@ -32,84 +37,113 @@ class FailedObservationStore:
                 last_retry TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        logger.debug("Initialized failed_observation table")
 
     def insert(self, observation, topic, error):
-        with sqlite3.connect(self.path) as connection:
-            connection.execute(
-                """
-                INSERT INTO failed_observation (
-                    topic,
-                    observation,
-                    error_type,
-                    error_message,
-                    status_code
-                )
-                VALUES (?, ?,?, ?, ?)
-                """,
-                (
-                    topic,
-                    json.dumps(observation),
-                    error.error_type,
-                    error.error_message,
-                    error.status_code,
-                ),
-            )
-
-    def fetch_all(self):
-        with sqlite3.connect(self.path) as connection:
-            connection.row_factory = sqlite3.Row
-            rows = connection.execute("""
-                SELECT
-                    id,
-                    observation,
-                    topic,
-                    error_type,
-                    error_message,
-                    status_code,
-                    retry_count,
-                    last_retry
-                FROM failed_observation
-                ORDER BY id ASC
-            """).fetchall()
-            return [
-                FailedObservation(
-                    id=row["id"],
-                    observation=json.loads(row["observation"]),
-                    topic=row["topic"],
-                    error_type=row["error_type"],
-                    error_message=row["error_message"],
-                    status_code=row["status_code"],
-                    retry_count=row["retry_count"],
-                )
-                for row in rows
-            ]
-
-    def delete(self, observations):
-        with sqlite3.connect(self.path) as connection:
-            connection.executemany(
-                "DELETE FROM failed_observation WHERE id = ?",
-                ((observation.id,) for observation in observations),
-            )
-
-    def update_observation_retry(self, observations, error):
-        with sqlite3.connect(self.path) as connection:
-            connection.executemany(
-                """
-                        UPDATE failed_observation
-                        SET retry_count = retry_count + 1,
-                            last_retry = CURRENT_TIMESTAMP,
-                            error_type = ?,
-                            error_message = ?,
-                            status_code = ?
-                        WHERE id = ?
-                        """,
-                (
+        try:
+            with sqlite3.connect(self.path) as connection:
+                connection.execute(
+                    """
+                    INSERT INTO failed_observation (
+                        topic,
+                        observation,
+                        error_type,
+                        error_message,
+                        status_code
+                    )
+                    VALUES (?, ?,?, ?, ?)
+                    """,
                     (
+                        topic,
+                        json.dumps(observation),
                         error.error_type,
                         error.error_message,
                         error.status_code,
-                        observation.id,
-                    )
-                    for observation in observations
-                ),
+                    ),
+                )
+        except sqlite3.Error:
+            logger.exception(
+                "Failed to insert failed observation for topic=%s",
+                topic,
             )
+            raise
+
+    def fetch_all(self):
+        try:
+            with sqlite3.connect(self.path) as connection:
+                connection.row_factory = sqlite3.Row
+                rows = connection.execute("""
+                    SELECT
+                        id,
+                        observation,
+                        topic,
+                        error_type,
+                        error_message,
+                        status_code,
+                        retry_count,
+                        last_retry
+                    FROM failed_observation
+                    ORDER BY id ASC
+                """).fetchall()
+                return [
+                    FailedObservation(
+                        id=row["id"],
+                        observation=json.loads(row["observation"]),
+                        topic=row["topic"],
+                        error_type=row["error_type"],
+                        error_message=row["error_message"],
+                        status_code=row["status_code"],
+                        retry_count=row["retry_count"],
+                    )
+                    for row in rows
+                ]
+        except sqlite3.Error:
+            logger.exception("Failed to fetch failed observations")
+            raise
+
+    def delete(self, observations):
+        if not observations:
+            return
+        try:
+            with sqlite3.connect(self.path) as connection:
+                connection.executemany(
+                    "DELETE FROM failed_observation WHERE id = ?",
+                    ((observation.id,) for observation in observations),
+                )
+        except sqlite3.Error:
+            logger.exception(
+                "Failed to delete %d failed observation(s)", len(observations)
+            )
+            raise
+
+    def update_observation_retry_count(self, observations, error):
+        if not observations:
+            return
+        try:
+            with sqlite3.connect(self.path) as connection:
+                connection.executemany(
+                    """
+                            UPDATE failed_observation
+                            SET retry_count = retry_count + 1,
+                                last_retry = CURRENT_TIMESTAMP,
+                                error_type = ?,
+                                error_message = ?,
+                                status_code = ?
+                            WHERE id = ?
+                            """,
+                    (
+                        (
+                            error.error_type,
+                            error.error_message,
+                            error.status_code,
+                            observation.id,
+                        )
+                        for observation in observations
+                    ),
+                )
+        except sqlite3.Error:
+            logger.exception(
+                "Failed to update retry count for %d observation(s)",
+                len(observations),
+            )
+            raise
