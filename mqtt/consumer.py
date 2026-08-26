@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class MQTTClient:
     """Class for MQTT Publish and Subscribe"""
 
-    KEEP_ALIVE = 10
+    KEEP_ALIVE = 60
 
     def __init__(
         self,
@@ -49,24 +49,29 @@ class MQTTClient:
                 self.client_id,
             )
             self.client.connect(self.host, self.port, self.KEEP_ALIVE)
+            self.client.loop_forever()
 
         except (
             ConnectionRefusedError,
             TimeoutError,
             socket.gaierror,
             OSError,
-        ) as exc:
-            logger.error(
-                "Network connection to MQTT broker %s:%s failed: %s",
+        ):
+            logger.exception(
+                "Network connection to MQTT broker %s:%s failed",
                 self.host,
                 self.port,
-                exc,
             )
 
     # callback when client receives CONNACK from broker
     def on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code == 0:
-            logger.info("Successfully connected!")
+            logger.info(
+                "Connected to MQTT broker host=%s port=%s client_id=%s",
+                self.host,
+                self.port,
+                self.client_id,
+            )
             client.subscribe(self.topic_prefix)
             # there is no way of knowing how many topic exists in the broker of this prefix
             # it can be known in self.on_message step
@@ -80,16 +85,16 @@ class MQTTClient:
     # The callback called when a message has been received on a topic
     # that the client subscribes to
     def on_message(self, client, userdata, message):
+        logger.debug(
+            "Received MQTT message topic=%s qos=%s retained=%s",
+            message.topic,
+            message.qos,
+            message.retain,
+        )
         # This is where we write what we want to do when message is received
         # raw byte array (bytes object) is received and therefore decoding before sending to object
         try:
             payload = message.payload.decode()
-
-            logger.info(
-                "Received MQTT message on topic %s",
-                message.topic,
-            )
-
             taskqueue.put((message.topic, payload))
 
         except UnicodeDecodeError:
@@ -101,8 +106,7 @@ class MQTTClient:
     # The callback called when the broker responds to a subscribe request
     def on_subscribe(self, client, userdata, mid, reason_code, properties):
         logger.info(
-            "MQTT subscribe acknowledged: mid=%s, reason_code=%s",
-            mid,
+            "MQTT SUBACK reason codes: %s",
             reason_code,
         )
 
@@ -120,8 +124,4 @@ class MQTTClient:
             self.client.disconnect()
             self.client.loop_stop()
             self.client = None
-            logger.info("MQTT client stopped")
-
-    def loop_forever(self):
-        logger.debug("Starting MQTT network loop")
-        self.client.loop_forever()
+        logger.info("MQTT client stopped")
