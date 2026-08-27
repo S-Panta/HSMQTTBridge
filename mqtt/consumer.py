@@ -2,6 +2,8 @@
 import logging
 import socket
 import paho.mqtt.client as mqtt
+
+from config import config
 from queue_manager import taskqueue
 
 logger = logging.getLogger(__name__)
@@ -10,24 +12,11 @@ logger = logging.getLogger(__name__)
 class MQTTClient:
     """Class for MQTT Publish and Subscribe"""
 
-    KEEP_ALIVE = 60
-
-    def __init__(
-        self,
-        host,
-        topic_prefix,
-        username=None,
-        password=None,
-        port=1883,
-        client_id="pythonbridge",
-    ):
+    def __init__(self, host, port):
         self.client = None
         self.host = host
         self.port = port
-        self.topic_prefix = topic_prefix
-        self.client_id = client_id
-        self.username = username
-        self.password = password
+        self.client_id = config.mqtt_client_id
 
     def connect(self):
         try:
@@ -40,15 +29,15 @@ class MQTTClient:
             self.client.on_message = self.on_message
             self.client.on_subscribe = self.on_subscribe
             self.client.on_disconnect = self.on_disconnect
-            if self.username is not None:
-                self.client.username_pw_set(self.username, self.password)
+            if config.mqtt_username is not None:
+                self.client.username_pw_set(config.mqtt_username, config.mqtt_password)
             logger.info(
                 "Connecting to MQTT broker %s:%s (client_id=%s)",
                 self.host,
                 self.port,
                 self.client_id,
             )
-            self.client.connect(self.host, self.port, self.KEEP_ALIVE)
+            self.client.connect(self.host, self.port, config.mqtt_keepalive)
             self.client.loop_forever()
 
         except (
@@ -65,6 +54,7 @@ class MQTTClient:
 
     # callback when client receives CONNACK from broker
     def on_connect(self, client, userdata, flags, reason_code, properties):
+        topic_prefix = config.mqtt_topic_prefix
         if reason_code == 0:
             logger.info(
                 "Connected to MQTT broker host=%s port=%s client_id=%s",
@@ -72,10 +62,10 @@ class MQTTClient:
                 self.port,
                 self.client_id,
             )
-            client.subscribe(self.topic_prefix)
+            client.subscribe(topic_prefix)
             # there is no way of knowing how many topic exists in the broker of this prefix
             # it can be known in self.on_message step
-            logger.info("Subscribed to %s", self.topic_prefix)
+            logger.info("Subscribed to %s", topic_prefix)
         else:
             logger.error(
                 "MQTT connection failed: reason_code=%s",
@@ -86,10 +76,8 @@ class MQTTClient:
     # that the client subscribes to
     def on_message(self, client, userdata, message):
         logger.debug(
-            "Received MQTT message topic=%s qos=%s retained=%s",
+            "Received MQTT message topic=%s",
             message.topic,
-            message.qos,
-            message.retain,
         )
         # This is where we write what we want to do when message is received
         # raw byte array (bytes object) is received and therefore decoding before sending to object
