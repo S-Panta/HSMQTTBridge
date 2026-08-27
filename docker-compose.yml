@@ -1,0 +1,9 @@
+services:
+  app:
+    image: bridge:latest
+    environment:
+      HYDROSERVER_URL: ${HYDROSERVER_URL}
+      WORKSPACE_API_KEY: ${WORKSPACE_API_KEY}
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX}
+      LOG_LEVEL: ${LOG_LEVEL}
