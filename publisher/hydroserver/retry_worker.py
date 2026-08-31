@@ -9,22 +9,27 @@ logger = logging.getLogger(__name__)
 class RetryWorker:
     """class for implementation of retry worker"""
 
-    MAX_ATTENPTS = 4
+    # This class should know which service the data is being retried to and the cache
 
-    def __init__(self, database, hydroserver, interval=30):
+    def __init__(
+        self, database, hydroserver, retry_interval=1800, max_retry_attempt=10
+    ):
         self.database = database
         self.hydroserver_publisher = hydroserver
-        self.interval = interval
+        self.retry_interval = retry_interval
+        self.max_retry_attempt = max_retry_attempt
         self._stop_event = threading.Event()
 
     def run(self):
         while not self._stop_event.is_set():
             try:
-                logging.info("Running retry worker")
+                logger.info(
+                    "Running retry worker every %s seconds", self.retry_interval
+                )
                 self.post_into_hydroserver()
             except Exception as e:
                 logger.exception("Retry worker error: %s", e)
-            self._stop_event.wait(self.interval)
+            self._stop_event.wait(self.retry_interval)
 
     def stop(self):
         # Unblocks the worker thread
@@ -37,12 +42,12 @@ class RetryWorker:
     def __group_observations_by_topic(self, observations):
         chunks = defaultdict(list)
         for observation in observations:
-            if observation.retry_count >= self.MAX_ATTENPTS:
+            if observation.retry_count >= self.max_retry_attempt:
                 logger.warning(
                     "Skipping observation for topic '%s': "
                     "maximum retry attempts (%d) reached",
                     observation.topic,
-                    self.MAX_ATTENPTS,
+                    self.max_retry_attempt,
                 )
                 continue
             chunks[observation.topic].append(observation)
@@ -50,6 +55,9 @@ class RetryWorker:
 
     def post_into_hydroserver(self):
         observations = self.__get_failed_observations()
+        if not observations:
+            logger.info("No observation exists in the cache")
+            return
         chunks = self.__group_observations_by_topic(observations)
         logger.info("There are %d chunks to process", len(chunks))
         for i, (topic, chunk) in enumerate(chunks.items(), start=1):

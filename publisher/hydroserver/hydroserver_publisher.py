@@ -52,7 +52,7 @@ class HydroServerPublisher(Publisher):
             # not all HTTPError response should be retried
             cache_data = status_code == 429
 
-            logger.warning(
+            logger.debug(
                 "HTTP error occurred "
                 "datastream_id=%s status_code=%s retryable=%s error=%s",
                 datastream_uuid,
@@ -65,7 +65,7 @@ class HydroServerPublisher(Publisher):
             )
 
         except requests.exceptions.RequestException as error:
-            logger.warning(
+            logger.debug(
                 "Connection request failed error_type=%s error=%s",
                 type(error).__name__,
                 error,

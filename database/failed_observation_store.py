@@ -15,13 +15,15 @@ class FailedObservationStore:
         try:
             with sqlite3.connect(self.path) as connection:
                 connection.execute("PRAGMA journal_mode = WAL")
+                logger.info("Connected to sqlite database: %s", self.path)
                 self._initialize_db(connection)
 
-            logger.info("Connected to sqlite database: %s", self.path)
-
-        except sqlite3.Error as e:
+        except sqlite3.Error as err:
             logger.exception(
-                "Failed to connect to sqlite database: %s . Error: %s", self.path, e
+                "Failed to connect to sqlite database: %s . Errortype: %s .  Error %s",
+                self.path,
+                type(err).__name__,
+                err,
             )
 
     def _initialize_db(self, connection):
@@ -37,7 +39,7 @@ class FailedObservationStore:
                 last_retry TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        logger.debug("Initialized failed_observation table")
+        logger.info("Initialized failed_observation table")
 
     def insert(self, observation, topic, error):
         try:
@@ -60,6 +62,10 @@ class FailedObservationStore:
                         error.error_message,
                         error.status_code,
                     ),
+                )
+                logger.info(
+                    "Successfully inserted failed observation for topic=%s",
+                    topic,
                 )
         except sqlite3.Error:
             logger.exception(
