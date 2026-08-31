@@ -1,3 +1,2 @@
 [MAIN]
-ignore = .venv
 disable=C0114,C0116,E0401,R0903
