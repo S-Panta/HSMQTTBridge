@@ -3,20 +3,33 @@ import logging
 import socket
 import paho.mqtt.client as mqtt
 
-from config import config
+
 from queue_manager import taskqueue
 
 logger = logging.getLogger(__name__)
 
 
-class MQTTClient:
+class MQTTConsumer:
     """Class for MQTT Publish and Subscribe"""
 
-    def __init__(self, host, port):
+    def __init__(
+        self,
+        host,
+        port,
+        client_id="hsbridge",
+        mqtt_username=None,
+        password=None,
+        keepalive=60,
+        topic_prefix="",
+    ):
         self.client = None
         self.host = host
         self.port = port
-        self.client_id = config.mqtt_client_id
+        self.client_id = client_id
+        self.mqtt_username = mqtt_username
+        self.password = password
+        self.keepalive = keepalive
+        self.topic_prefix = topic_prefix
 
     def connect(self):
         try:
@@ -24,20 +37,19 @@ class MQTTClient:
             self.client = mqtt.Client(
                 mqtt.CallbackAPIVersion.VERSION2, client_id=self.client_id
             )
-            # all these callbacks runs on same network thread because of loop_start()
             self.client.on_connect = self.on_connect
             self.client.on_message = self.on_message
             self.client.on_subscribe = self.on_subscribe
             self.client.on_disconnect = self.on_disconnect
-            if config.mqtt_username is not None:
-                self.client.username_pw_set(config.mqtt_username, config.mqtt_password)
+            if self.mqtt_username is not None:
+                self.client.username_pw_set(self.mqtt_username, self.password)
             logger.info(
                 "Connecting to MQTT broker %s:%s (client_id=%s)",
                 self.host,
                 self.port,
                 self.client_id,
             )
-            self.client.connect(self.host, self.port, config.mqtt_keepalive)
+            self.client.connect(self.host, self.port, self.keepalive)
             self.client.loop_forever()
 
         except (
@@ -45,16 +57,18 @@ class MQTTClient:
             TimeoutError,
             socket.gaierror,
             OSError,
-        ):
-            logger.exception(
-                "Network connection to MQTT broker %s:%s failed",
+        ) as exc:
+            logger.error(
+                "Cnnection to MQTT broker %s:%s failed: %s: %s",
                 self.host,
                 self.port,
+                type(exc).__name__,
+                exc,
             )
+            raise
 
     # callback when client receives CONNACK from broker
     def on_connect(self, client, userdata, flags, reason_code, properties):
-        topic_prefix = config.mqtt_topic_prefix
         if reason_code == 0:
             logger.info(
                 "Connected to MQTT broker host=%s port=%s client_id=%s",
@@ -62,10 +76,10 @@ class MQTTClient:
                 self.port,
                 self.client_id,
             )
-            client.subscribe(topic_prefix)
+            client.subscribe(self.topic_prefix)
             # there is no way of knowing how many topic exists in the broker of this prefix
             # it can be known in self.on_message step
-            logger.info("Subscribed to %s", topic_prefix)
+            logger.info("Subscribed to %s", self.topic_prefix)
         else:
             logger.error(
                 "MQTT connection failed: reason_code=%s",

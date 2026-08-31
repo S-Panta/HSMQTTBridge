@@ -32,5 +32,5 @@ class MessageRouter:
                     continue
                 result = self.hydroserver_publisher.push_observation_to_upstream(data)
                 if result and result.cache_data is True:
-
+                    logger.info("Caching data to sqlite database")
                     self.pending_observation.insert(data, topic, result)

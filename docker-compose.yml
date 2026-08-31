@@ -1,9 +1,16 @@
 services:
   app:
-    image: bridge:latest
+    image: mqtt_bridge:latest
+    container_name: mqtt_bridge
     environment:
       HYDROSERVER_URL: ${HYDROSERVER_URL}
       WORKSPACE_API_KEY: ${WORKSPACE_API_KEY}
       MQTT_BROKER_URL: ${MQTT_BROKER_URL}
       MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX}
+      DB_PATH: ${DB_PATH}
       LOG_LEVEL: ${LOG_LEVEL}
+      MAX_RETRY_ATTEMPT: ${MAX_RETRY_ATTEMPT}
+      RETRY_INTERVAL: ${RETRY_INTERVAL}
+
+    volumes:
+      - ./data:/app/data

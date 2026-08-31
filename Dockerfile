@@ -1,11 +1,14 @@
-FROM python:3.11-slim
+FROM python:3.11-alpine
+
 WORKDIR /app
 
-RUN useradd -m bridge
-USER bridge
-COPY --chown=bridge:bridge . /app/
+RUN adduser -D bridge
 
+COPY --chown=bridge:bridge requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY --chown=bridge:bridge . .
+
+USER bridge
 
 CMD ["python", "main.py"]

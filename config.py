@@ -24,10 +24,14 @@ class Config(BaseSettings):
     mqtt_password: str | None = None
 
     # database
-    db_path: Path = Path("./data/observation.db")
+    db_path: Path
 
     # logging level
     log_level: str = Field(default="INFO")
+
+    # retry worker
+    max_retry_attempt: int
+    retry_interval: int
 
 
 config = Config()
