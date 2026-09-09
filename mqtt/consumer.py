@@ -17,19 +17,19 @@ class MQTTConsumer:
         host,
         port,
         client_id="hsbridge",
-        mqtt_username=None,
+        username=None,
         password=None,
         keepalive=60,
-        topic_prefix="",
+        topic_filter="#",
     ):
         self.client = None
         self.host = host
         self.port = port
         self.client_id = client_id
-        self.mqtt_username = mqtt_username
+        self.username = username
         self.password = password
         self.keepalive = keepalive
-        self.topic_prefix = topic_prefix
+        self.topic_filter = topic_filter
 
     def connect(self):
         try:
@@ -41,8 +41,8 @@ class MQTTConsumer:
             self.client.on_message = self.on_message
             self.client.on_subscribe = self.on_subscribe
             self.client.on_disconnect = self.on_disconnect
-            if self.mqtt_username is not None:
-                self.client.username_pw_set(self.mqtt_username, self.password)
+            if self.username is not None:
+                self.client.username_pw_set(self.username, self.password)
             logger.info(
                 "Connecting to MQTT broker %s:%s (client_id=%s)",
                 self.host,
@@ -76,10 +76,10 @@ class MQTTConsumer:
                 self.port,
                 self.client_id,
             )
-            client.subscribe(self.topic_prefix)
-            # there is no way of knowing how many topic exists in the broker of this prefix
+            client.subscribe(self.topic_filter)
+            # there is no way of knowing how many topic exists in the broker of this filter
             # it can be known in self.on_message step
-            logger.info("Subscribed to %s", self.topic_prefix)
+            logger.info("Subscribed to %s", self.topic_filter)
         else:
             logger.error(
                 "MQTT connection failed: reason_code=%s",
@@ -89,7 +89,7 @@ class MQTTConsumer:
     # The callback called when a message has been received on a topic
     # that the client subscribes to
     def on_message(self, client, userdata, message):
-        logger.debug(
+        logger.info(
             "Received MQTT message topic=%s",
             message.topic,
         )
