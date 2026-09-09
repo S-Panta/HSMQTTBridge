@@ -36,7 +36,7 @@ def main():
     mqtt = MQTTConsumer(
         host=config.mqtt_broker_url,
         port=config.mqtt_broker_port,
-        topic_prefix=config.mqtt_topic_prefix,
+        topic_filter=config.mqtt_topic_filter,
     )
 
     router = MessageRouter(hydroserver_publisher, failed_observation)

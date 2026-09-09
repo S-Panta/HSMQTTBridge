@@ -17,7 +17,7 @@ class Config(BaseSettings):
     # # broker config
     mqtt_broker_url: str = Field(default="test.mosquitto.org")
     mqtt_broker_port: int = Field(default=1883)
-    mqtt_topic_prefix: str = Field(default="#")
+    mqtt_topic_filter: str = Field(default="#")
     mqtt_client_id: str = Field(default="hsmqttbridge")
     mqtt_keepalive: int = Field(default=60)
     mqtt_username: str | None = None
