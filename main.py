@@ -44,7 +44,12 @@ def main():
         target=router.route_incoming_message, name="message_router", daemon=True
     )
     worker.start()
-    retry_worker = RetryWorker(failed_observation, hydroserver_publisher)
+    retry_worker = RetryWorker(
+        failed_observation,
+        hydroserver_publisher,
+        config.retry_interval,
+        config.max_retry_attempt,
+    )
     retry_worker_thread = threading.Thread(
         target=retry_worker.run, name="retry_worker", daemon=True
     )

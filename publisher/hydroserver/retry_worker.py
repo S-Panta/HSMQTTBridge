@@ -11,9 +11,7 @@ class RetryWorker:
 
     # This class should know which service the data is being retried to and the cache
 
-    def __init__(
-        self, database, hydroserver, retry_interval=1800, max_retry_attempt=10
-    ):
+    def __init__(self, database, hydroserver, retry_interval, max_retry_attempt):
         self.database = database
         self.hydroserver_publisher = hydroserver
         self.retry_interval = retry_interval

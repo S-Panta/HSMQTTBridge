@@ -30,8 +30,8 @@ class Config(BaseSettings):
     log_level: str = Field(default="INFO")
 
     # retry worker
-    max_retry_attempt: int
-    retry_interval: int
+    max_retry_attempt: int = Field(default=10)
+    retry_interval: int = Field(default=1800)
 
 
 config = Config()
