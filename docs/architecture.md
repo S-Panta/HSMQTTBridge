@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Environmental dataloggers in the field publish observations over MQTT, which is lightweight, tolerates poor links, and is supported by constrained devices. HydroServer takes data through an HTTP/SensorThings-style API. HSMQTTBridge sits between the two. It turns an MQTT stream into HydroServer observations, and it absorbs HydroServer outages so field devices never need retry logic of their own.
+Environmental dataloggers in the field publish observations over MQTT but HydroServer takes data through an HTTP. HSMQTTBridge sits between these two. It act as proxy client and forward the MQTT payload to HydroServer.
 
 ## Components
 
@@ -70,11 +70,3 @@ CREATE TABLE IF NOT EXISTS failed_observation (
     last_retry    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ```
-
-The database runs in WAL journal mode.
-
-## Deployment
-
-- A single process, packaged as a `python:3.11-alpine` image running as a non-root `bridge` user.
-- `docker-compose.yml` passes configuration as environment variables and mounts `./data` for the SQLite file.
-- The service is stateless apart from the SQLite cache and the in-memory datastream cache, which is rebuilt on demand.
