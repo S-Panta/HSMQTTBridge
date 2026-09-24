@@ -27,10 +27,6 @@ Environmental dataloggers in the field publish observations over MQTT but HydroS
 | `message_router` | `main.py` (daemon) | `MessageRouter.route_incoming_message()`, a blocking `taskqueue.get()` loop | Process lifetime |
 | `retry_worker` | `main.py` (daemon) | `RetryWorker.run()`, which does a retry pass and then `Event.wait(retry_interval)` | Until `stop()` sets the event |
 
-Paho callbacks run on the network loop thread. Doing HTTP work in `on_message` would stall keepalives and delay other messages, so the callback only enqueues (see [ADR-0001](adr/0001-decouple-mqtt-consumer-with-queue.md)). The router and the retry worker both call the same `HydroServerPublisher` and both open their own SQLite connections per operation.
-
-On shutdown, the `finally` block in `main.py` stops the MQTT client, signals the retry worker through its `threading.Event`, and joins it for up to 10 seconds. The router thread is a daemon and is not joined.
-
 ## Life of an observation
 
 1. A datalogger publishes JSON to the broker, e.g. on `uwrl/site-1/temperature`.
