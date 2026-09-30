@@ -5,7 +5,7 @@ from hydroserverpy import HydroServer
 import pandas as pd
 from pydantic import ValidationError
 
-from publisher.base_publisher import Publisher, PublishError
+from publisher.base_publisher import Publisher, PublishFailure
 from publisher.hydroserver.models import Observation
 
 logger = logging.getLogger(__name__)
@@ -23,46 +23,45 @@ class HydroServerPublisher(Publisher):
             base_url,
         )
 
-    def __validate_observation(self, payload):
+    def _validate_observation(self, payload):
         return Observation.model_validate(payload)
 
-    def __get_datastream(self, datastream_uuid):
+    def _get_datastream(self, datastream_uuid):
         datastream = self.datastreams.get(datastream_uuid)
         if datastream is not None:
-            logger.debug(
+            logger.info(
                 "Using datastream object stored locally for datastream_id=%s",
                 datastream_uuid,
             )
             return datastream
-
         datastream = self.hydroserver.datastreams.get(datastream_uuid)
 
         self.datastreams[datastream_uuid] = datastream
         return datastream
 
-    def __load_observation(self, datastream_uuid, observations):
+    def _load_observation(self, datastream_uuid, observations):
         try:
-            datastream = self.__get_datastream(datastream_uuid)
+            datastream = self._get_datastream(datastream_uuid)
             datastream.load_observations(observations)
-
         except requests.exceptions.HTTPError as http_error:
-            status_code = (
-                http_error.response.status_code if http_error.response else None
-            )
-            # not all HTTPError response should be retried
-            cache_data = status_code == 429
+            # not all HTTPError response should be retried.
+            # A status code of 409 means the payload exists in the Hydroserver.
+            # Only cache when status code matches retry_status_code
+            status_code = http_error.response.status_code
+            retry_status_code = [408, 429, 449, 500, 502, 503, 504]
+            should_retry = False
+            if status_code in retry_status_code:
+                should_retry = True
 
-            logger.debug(
+            logger.error(
                 "HTTP error occurred "
-                "datastream_id=%s status_code=%s retryable=%s error=%s",
+                "datastream_id=%s status_code=%s should retry=%s error=%s",
                 datastream_uuid,
                 status_code,
-                cache_data,
+                should_retry,
                 http_error,
             )
-            return PublishError.handle_exception(
-                cache_data=cache_data, error=http_error
-            )
+            return PublishFailure.from_exception(http_error, should_retry)
 
         except requests.exceptions.RequestException as error:
             logger.debug(
@@ -70,21 +69,19 @@ class HydroServerPublisher(Publisher):
                 type(error).__name__,
                 error,
             )
-            return PublishError.handle_exception(cache_data=True, error=error)
+            # Retry every connection request exception
+            return PublishFailure.from_exception(error)
         return None
 
     def push_observation_to_upstream(self, payload):
         try:
-            payload = self.__validate_observation(payload)
+            payload = self._validate_observation(payload)
         except ValidationError as error:
             # if incoming payload is not correct, it make no sense to either post or store in cache
             # to do: log this in future
             # print(error.errors(include_url=False, include_input=False))
             logger.warning("Invalid observation")
-            return PublishError.handle_exception(
-                cache_data=False,
-                error=error,
-            )
+            return PublishFailure.from_exception(error, should_retry=False)
 
         datastream_uuid = str(payload.Datastream.datastream_id)
         observation = pd.DataFrame(
@@ -93,12 +90,12 @@ class HydroServerPublisher(Publisher):
                 "result": [payload.result],
             }
         )
-        return self.__load_observation(datastream_uuid, observation)
+        return self._load_observation(datastream_uuid, observation)
 
     def batch_upload(self, chunked_payload):
         """This operation is for retry worker
-        HTTP 404 and other error data are thrown out in earlier process.
-        Thus,parsing and getting getdatastream error verification is not needed
+        HTTP 404 and other invalid payload error are thrown out in earlier process.
+        Therefore parsing is not necessary again.
         """
         if not chunked_payload:
             logger.warning("Payload chunk is empty")
@@ -112,4 +109,4 @@ class HydroServerPublisher(Publisher):
                 for obs in chunked_payload
             ]
         )
-        return self.__load_observation(datastream_id, observations)
+        return self._load_observation(datastream_id, observations)

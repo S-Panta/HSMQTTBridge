@@ -11,9 +11,11 @@ class RetryWorker:
 
     # This class should know which service the data is being retried to and the cache
 
-    def __init__(self, database, hydroserver, retry_interval, max_retry_attempt):
-        self.database = database
-        self.hydroserver_publisher = hydroserver
+    def __init__(
+        self, retry_buffer, hydroserver_publisher, retry_interval, max_retry_attempt
+    ):
+        self.retry_buffer = retry_buffer
+        self.hydroserver_publisher = hydroserver_publisher
         self.retry_interval = retry_interval
         self.max_retry_attempt = max_retry_attempt
         self._stop_event = threading.Event()
@@ -30,14 +32,13 @@ class RetryWorker:
             self._stop_event.wait(self.retry_interval)
 
     def stop(self):
-        # Unblocks the worker thread
         logger.info("Stopping retry worker")
         self._stop_event.set()
 
-    def __get_failed_observations(self):
-        return self.database.fetch_all()
+    def _get_failed_observations(self):
+        return self.retry_buffer.fetch_all()
 
-    def __group_observations_by_topic(self, observations):
+    def _group_observations_by_topic(self, observations):
         chunks = defaultdict(list)
         for observation in observations:
             if observation.retry_count >= self.max_retry_attempt:
@@ -52,12 +53,12 @@ class RetryWorker:
         return chunks
 
     def post_into_hydroserver(self):
-        observations = self.__get_failed_observations()
+        observations = self._get_failed_observations()
         if not observations:
-            logger.info("No observation exists in the cache")
+            logger.info("No observation exists in the sqlite buffer")
             return
-        chunks = self.__group_observations_by_topic(observations)
-        logger.info("There are %d chunks to process", len(chunks))
+        chunks = self._group_observations_by_topic(observations)
+        logger.info("Total chunks to process from database: %d ", len(chunks))
         for i, (topic, chunk) in enumerate(chunks.items(), start=1):
             try:
                 logger.info(
@@ -71,7 +72,7 @@ class RetryWorker:
                 result = self.hydroserver_publisher.batch_upload(chunk)
                 # A successful hydroserver post returns no value
                 if result is not None:
-                    self.database.update_observation_retry_count(chunk, result)
+                    self.retry_buffer.update_observation_retry_count(chunk, result)
                 else:
                     # once successful post is done, the data is deleted from local database
                     logger.info(
@@ -81,7 +82,7 @@ class RetryWorker:
                         len(chunks),
                         topic,
                     )
-                    self.database.delete(chunk)
+                    self.retry_buffer.delete(chunk)
             except Exception as e:
                 logger.exception(
                     "Error processing chunk %d/%d for topic '%s' . Error is %s",

@@ -1,16 +1,17 @@
 import json
 import logging
 import sqlite3
-from database.model import FailedObservation
+from database.model import BufferedObservation
 
 logger = logging.getLogger(__name__)
 
 
-class FailedObservationStore:
-    """Class to wrap SQLite database operations."""
+class RetryBuffer:
+    """This class contains methods for working with retry buffer"""
 
     def __init__(self, path):
         self.path = path
+        self.database_table = "buffered_observations"
 
         try:
             with sqlite3.connect(self.path) as connection:
@@ -27,8 +28,8 @@ class FailedObservationStore:
             )
 
     def _initialize_db(self, connection):
-        connection.execute("""
-            CREATE TABLE IF NOT EXISTS failed_observation (
+        connection.execute(f"""
+            CREATE TABLE IF NOT EXISTS {self.database_table} (
                 id INTEGER PRIMARY KEY,
                 observation TEXT NOT NULL,
                 topic TEXT NOT NULL,
@@ -39,14 +40,14 @@ class FailedObservationStore:
                 last_retry TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        logger.info("Initialized failed_observation table")
+        logger.info("Initialized buffered_observation table")
 
     def insert(self, observation, topic, error):
         try:
             with sqlite3.connect(self.path) as connection:
                 connection.execute(
-                    """
-                    INSERT INTO failed_observation (
+                    f"""
+                    INSERT INTO {self.database_table} (
                         topic,
                         observation,
                         error_type,
@@ -64,12 +65,12 @@ class FailedObservationStore:
                     ),
                 )
                 logger.info(
-                    "Successfully inserted failed observation for topic=%s",
+                    "Successfully inserted for topic=%s",
                     topic,
                 )
         except sqlite3.Error:
             logger.exception(
-                "Failed to insert failed observation for topic=%s",
+                "Failed to insert for topic=%s",
                 topic,
             )
             raise
@@ -78,7 +79,7 @@ class FailedObservationStore:
         try:
             with sqlite3.connect(self.path) as connection:
                 connection.row_factory = sqlite3.Row
-                rows = connection.execute("""
+                rows = connection.execute(f"""
                     SELECT
                         id,
                         observation,
@@ -88,11 +89,11 @@ class FailedObservationStore:
                         status_code,
                         retry_count,
                         last_retry
-                    FROM failed_observation
+                    FROM {self.database_table}
                     ORDER BY id ASC
                 """).fetchall()
                 return [
-                    FailedObservation(
+                    BufferedObservation(
                         id=row["id"],
                         observation=json.loads(row["observation"]),
                         topic=row["topic"],
@@ -104,7 +105,7 @@ class FailedObservationStore:
                     for row in rows
                 ]
         except sqlite3.Error:
-            logger.exception("Failed to fetch failed observations")
+            logger.exception("Failed to fetch %d  table", {self.database_table})
             raise
 
     def delete(self, observations):
@@ -113,13 +114,11 @@ class FailedObservationStore:
         try:
             with sqlite3.connect(self.path) as connection:
                 connection.executemany(
-                    "DELETE FROM failed_observation WHERE id = ?",
+                    f"DELETE FROM {self.database_table} WHERE id = ?",
                     ((observation.id,) for observation in observations),
                 )
         except sqlite3.Error:
-            logger.exception(
-                "Failed to delete %d failed observation(s)", len(observations)
-            )
+            logger.exception("Failed to delete %d ", len(observations))
             raise
 
     def update_observation_retry_count(self, observations, error):
@@ -128,8 +127,8 @@ class FailedObservationStore:
         try:
             with sqlite3.connect(self.path) as connection:
                 connection.executemany(
-                    """
-                            UPDATE failed_observation
+                    f"""
+                            UPDATE {self.database_table}
                             SET retry_count = retry_count + 1,
                                 last_retry = CURRENT_TIMESTAMP,
                                 error_type = ?,
@@ -149,7 +148,7 @@ class FailedObservationStore:
                 )
         except sqlite3.Error:
             logger.exception(
-                "Failed to update retry count for %d observation(s)",
+                "Failed to update retry count for %d observation",
                 len(observations),
             )
             raise

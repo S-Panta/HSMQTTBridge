@@ -6,15 +6,15 @@ import requests
 import pytest
 from pydantic import ValidationError
 
-from publisher.hydroserver.hydroserver_publisher import (
+from publisher.hydroserver.publisher import (
     HydroServerPublisher,
-    PublishError,
+    PublishFailure,
 )
 
 
 @pytest.fixture
 def hydroserver_publisher():
-    with patch("publisher.hydroserver.hydroserver_publisher.HydroServer"):
+    with patch("publisher.hydroserver.publisher.HydroServer"):
         yield HydroServerPublisher(
             "https://test.hydroserver.com",
             "test-api-key",
@@ -30,10 +30,10 @@ def observation_payload():
     }
 
 
-def test_validate_observation_valid_payload(hydroserver_publisher, observation_payload):
-    result = hydroserver_publisher._HydroServerPublisher__validate_observation(
-        observation_payload
-    )
+def test_validate_observation_with_valid_payload(
+    hydroserver_publisher, observation_payload
+):
+    result = hydroserver_publisher._validate_observation(observation_payload)
     assert result is not None
     assert result.result == observation_payload["result"]
     expected_time = datetime.fromisoformat(
@@ -46,15 +46,13 @@ def test_validate_observation_valid_payload(hydroserver_publisher, observation_p
 
 
 @pytest.mark.parametrize("invalid_datastream_id", ["123", ""])
-def test_validate_observation_invalid_datastream_id(
+def test_validate_observation_with_invalid_datastream_id(
     hydroserver_publisher, observation_payload, invalid_datastream_id
 ):
     observation_payload["Datastream"]["@iot.id"] = invalid_datastream_id
 
     with pytest.raises(ValidationError) as excinfo:
-        hydroserver_publisher._HydroServerPublisher__validate_observation(
-            observation_payload
-        )
+        hydroserver_publisher._validate_observation(observation_payload)
     error = excinfo.value.errors(include_url=False, include_input=False)[0]
     assert error["type"] == "uuid_parsing"
     assert error["loc"] == ("Datastream", "@iot.id")
@@ -68,15 +66,13 @@ def test_validate_observation_invalid_datastream_id(
         "phenomenonTime",
     ],
 )
-def test_validate_observation_missing_required_field(
+def test_validate_observation_with_missing_required_field(
     hydroserver_publisher, observation_payload, missing_field
 ):
     observation_payload.pop(missing_field)
 
     with pytest.raises(ValidationError) as excinfo:
-        hydroserver_publisher._HydroServerPublisher__validate_observation(
-            observation_payload
-        )
+        hydroserver_publisher._validate_observation(observation_payload)
 
     error = excinfo.value.errors()[0]
     assert error["type"] == "missing"
@@ -84,55 +80,51 @@ def test_validate_observation_missing_required_field(
     assert error["loc"] == (missing_field,)
 
 
-def test_validate_observation__result_is_not_float(
+def test_validate_observation_with_invalid_result(
     hydroserver_publisher, observation_payload
 ):
     observation_payload["result"] = "randomstring"
     with pytest.raises(ValidationError) as excinfo:
-        hydroserver_publisher._HydroServerPublisher__validate_observation(
-            observation_payload
-        )
+        hydroserver_publisher._validate_observation(observation_payload)
     error = excinfo.value.errors(include_url=False, include_input=False)[0]
     assert error["type"] == "float_parsing"
     assert error["loc"] == ("result",)
 
 
-def test_validate_observation__phenomenontime_is_not_valid(
+def test_validate_observation_with_invalid_phenomenon_time(
     hydroserver_publisher, observation_payload
 ):
     observation_payload["phenomenonTime"] = "not-a-valid-datetime"
     with pytest.raises(ValidationError) as excinfo:
-        hydroserver_publisher._HydroServerPublisher__validate_observation(
-            observation_payload
-        )
+        hydroserver_publisher._validate_observation(observation_payload)
     error = excinfo.value.errors(include_url=False, include_input=False)[0]
     assert error["type"] == "datetime_from_date_parsing"
     assert error["loc"] == ("phenomenonTime",)
 
 
-def test_get_datastream_nonexistent_datastream(hydroserver_publisher):
+def test_get_datastream_when_datastream_does_not_exist(hydroserver_publisher):
     datastream_uuid = UUID("12345678-1234-5678-1234-567812345678")
 
     error = requests.exceptions.HTTPError("Datastream not found")
     hydroserver_publisher.hydroserver.datastreams.get.side_effect = error
 
     with pytest.raises(requests.exceptions.HTTPError):
-        hydroserver_publisher._HydroServerPublisher__get_datastream(datastream_uuid)
+        hydroserver_publisher._get_datastream(datastream_uuid)
     assert datastream_uuid not in hydroserver_publisher.datastreams
 
 
-def test_get_datastream_reuses_existing_datastream_from_cache(hydroserver_publisher):
+def test_get_datastream_reuses_cached_datastream(hydroserver_publisher):
     datastream_uuid = UUID("12345678-1234-5678-1234-567812345678")
     assert len(hydroserver_publisher.datastreams) == 0
     for _ in range(3):
-        hydroserver_publisher._HydroServerPublisher__get_datastream(datastream_uuid)
+        hydroserver_publisher._get_datastream(datastream_uuid)
     assert len(hydroserver_publisher.datastreams) == 1
     hydroserver_publisher.hydroserver.datastreams.get.assert_called_once_with(
         datastream_uuid
     )
 
 
-def test_get_datastream_multiple_hydroserver_request_for_different_datastream(
+def test_get_datastream_requests_each_different_datastream(
     hydroserver_publisher,
 ):
     test_temperature_uuid = UUID("12345678-1234-5678-1234-567812345678")
@@ -141,10 +133,8 @@ def test_get_datastream_multiple_hydroserver_request_for_different_datastream(
         hydroserver_publisher.hydroserver.datastreams,
         "get",
     ) as mock_hydroserver_get_datastream_from_hydroserver:
-        hydroserver_publisher._HydroServerPublisher__get_datastream(
-            test_temperature_uuid
-        )
-        hydroserver_publisher._HydroServerPublisher__get_datastream(test_ph_uuid)
+        hydroserver_publisher._get_datastream(test_temperature_uuid)
+        hydroserver_publisher._get_datastream(test_ph_uuid)
 
         assert len(hydroserver_publisher.datastreams) == 2
     assert mock_hydroserver_get_datastream_from_hydroserver.call_count == 2
@@ -158,25 +148,25 @@ def test_post_observation_to_hydroserver(observation_payload, hydroserver_publis
     datastream.load_observations.assert_called_once()
 
 
-def test_invalid_observation_is_not_cached(observation_payload, hydroserver_publisher):
+def test_invalid_observation_is_not_retried(observation_payload, hydroserver_publisher):
     observation_payload["phenomenonTime"] = "not-a-valid-datetime"
     result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
-    assert isinstance(result, PublishError)
+    assert isinstance(result, PublishFailure)
     assert result.status_code == 0
     assert result.error_type == "ValidationError"
-    assert result.cache_data is False
+    assert result.should_retry is False
 
 
 @pytest.mark.parametrize(
-    "status_code,cache_data",
+    "status_code,should_retry",
     [
         (429, True),
         (401, False),
         (404, False),
     ],
 )
-def test_valid_observation_for_all_http_errors(
-    observation_payload, hydroserver_publisher, status_code, cache_data
+def test_push_observation_handles_http_errors(
+    observation_payload, hydroserver_publisher, status_code, should_retry
 ):
 
     response = MagicMock()
@@ -188,15 +178,15 @@ def test_valid_observation_for_all_http_errors(
     datastream.load_observations.side_effect = http_error
     with patch.object(
         hydroserver_publisher,
-        "_HydroServerPublisher__get_datastream",
+        "_get_datastream",
         return_value=datastream,
     ):
         result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
     assert result.error_type == "HTTPError"
-    assert result.cache_data is cache_data
+    assert result.should_retry is should_retry
 
 
-def test_post_observation_caches_observation_on_request_exception(
+def test_push_observation_handles_request_exception(
     observation_payload, hydroserver_publisher
 ):
     response = MagicMock()
@@ -207,15 +197,15 @@ def test_post_observation_caches_observation_on_request_exception(
     datastream.load_observations.side_effect = error
     with patch.object(
         hydroserver_publisher,
-        "_HydroServerPublisher__get_datastream",
+        "_get_datastream",
         return_value=datastream,
     ):
         result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
     assert result.error_type == "RequestException"
-    assert result.cache_data is True
+    assert result.should_retry is True
 
 
-def test_post_observation_datastream_not_found_in_hydroserver(
+def test_push_observation_handles_missing_datastream(
     observation_payload, hydroserver_publisher
 ):
     response = MagicMock()
@@ -227,10 +217,10 @@ def test_post_observation_datastream_not_found_in_hydroserver(
     hydroserver_publisher.hydroserver.datastreams.get.side_effect = http_error
     result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
     assert result.error_type == "HTTPError"
-    assert result.cache_data is False
+    assert result.should_retry is False
 
 
-def test_post_observation_reuses_cached_datastream_for_same_datastream(
+def test_push_observation_reuses_cached_datastream(
     observation_payload, hydroserver_publisher
 ):
     hydroserver_publisher.push_observation_to_upstream(observation_payload)

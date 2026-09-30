@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 
-class Config(BaseSettings):
+class Settings(BaseSettings):
     """class for storing config"""
 
     model_config = SettingsConfigDict(
@@ -26,6 +26,9 @@ class Config(BaseSettings):
     # database
     db_path: Path
 
+    # message_router_topic_and_service_mapping
+    hydroserver_topic_routes: str = Field(default="#")
+
     # logging level
     log_level: str = Field(default="INFO")
 
@@ -34,4 +37,4 @@ class Config(BaseSettings):
     retry_interval: int = Field(default=1800)
 
 
-config = Config()
+settings = Settings()
