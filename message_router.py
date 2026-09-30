@@ -1,5 +1,7 @@
 import json
 import logging
+from paho.mqtt.client import topic_matches_sub
+from settings import settings
 from queue_manager import taskqueue
 
 logger = logging.getLogger(__name__)
@@ -8,19 +10,23 @@ logger = logging.getLogger(__name__)
 class MessageRouter:
     """A bridge between MQTT Subscriber and other services"""
 
-    def __init__(self, hydroserver_publisher, pending_observation):
+    def __init__(self, hydroserver_publisher, retry_buffer):
         self.hydroserver_publisher = hydroserver_publisher
-        self.pending_observation = pending_observation
+        self.retry_buffer = retry_buffer
 
     def route_incoming_message(self):
         logger.info("Starting message router")
 
         while True:
             topic, payload = taskqueue.get()
-            # for example: topic ending with /lwt could be directed to notification service
-            # every observation topic ends with observation name; this make filtering easy
-            # if topic.endswith(("temperature", "pH")):
-            if topic.endswith("temperature"):
+
+            if topic.endswith("/lwt"):
+                # to-do: implement notification service
+                logger.info("topic routed to Notification service")
+                continue
+
+            if topic_matches_sub(settings.hydroserver_topic_routes, topic):
+                logger.info("Topic routed to HydroServer")
                 try:
                     data = json.loads(payload)
                 except json.JSONDecodeError:
@@ -31,6 +37,6 @@ class MessageRouter:
                     )
                     continue
                 result = self.hydroserver_publisher.push_observation_to_upstream(data)
-                if result and result.cache_data is True:
-                    logger.info("Caching data to sqlite database")
-                    self.pending_observation.insert(data, topic, result)
+                if result and result.should_retry is True:
+                    logger.info("Routing observation to sqlite retry buffer ")
+                    self.retry_buffer.insert(data, topic, result)

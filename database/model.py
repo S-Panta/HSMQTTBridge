@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 
 @dataclass
-class FailedObservation:
+class BufferedObservation:
     """Represents an observation that failed upstream upload."""
 
     id: int
