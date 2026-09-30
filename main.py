@@ -60,8 +60,8 @@ def main():
     retry_worker_thread.start()
     try:
         mqtt.connect()
-    # pylint: disable=broad-exception-caught
-    except Exception:
+
+    except Exception:  # pylint: disable=broad-exception-caught
         logger.exception("MQTT service failed.")
     finally:
         mqtt.stop()
