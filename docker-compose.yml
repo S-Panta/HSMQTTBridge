@@ -1,7 +1,7 @@
 services:
-  app:
-    image: mqtt_bridge:latest
-    container_name: mqtt_bridge
+  hsmqttbridge:
+    image: hsmqttbridge:latest
+    container_name: hsmqttbridge
     environment:
       HYDROSERVER_URL: ${HYDROSERVER_URL}
       WORKSPACE_API_KEY: ${WORKSPACE_API_KEY}
@@ -13,4 +13,4 @@ services:
       RETRY_INTERVAL: ${RETRY_INTERVAL}
 
     volumes:
-      - ./data:/app/data
+      - ./data:/hsmqttbridge/data
