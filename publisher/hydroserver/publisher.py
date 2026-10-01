@@ -30,7 +30,7 @@ class HydroServerPublisher(Publisher):
         datastream = self.datastreams.get(datastream_uuid)
         if datastream is not None:
             logger.info(
-                "Using datastream object stored locally for datastream_id=%s",
+                "Using datastream object stored locally for datastream_id = %s",
                 datastream_uuid,
             )
             return datastream
@@ -55,7 +55,7 @@ class HydroServerPublisher(Publisher):
 
             logger.error(
                 "HTTP error occurred "
-                "datastream_id=%s status_code=%s should retry=%s error=%s",
+                "datastream_id = %s status_code = %s should retry = %s error = %s",
                 datastream_uuid,
                 status_code,
                 should_retry,
@@ -65,7 +65,7 @@ class HydroServerPublisher(Publisher):
 
         except requests.exceptions.RequestException as error:
             logger.debug(
-                "Connection request failed error_type=%s error=%s",
+                "Connection request failed error_type = %s error = %s",
                 type(error).__name__,
                 error,
             )
@@ -80,7 +80,11 @@ class HydroServerPublisher(Publisher):
             # if incoming payload is not correct, it make no sense to either post or store in cache
             # to do: log this in future
             # print(error.errors(include_url=False, include_input=False))
-            logger.warning("Invalid observation")
+            logger.warning(
+                "Invalid observation: %s",
+                error.errors(include_url=False, include_input=False),
+            )
+
             return PublishFailure.from_exception(error, should_retry=False)
 
         datastream_uuid = str(payload.Datastream.datastream_id)

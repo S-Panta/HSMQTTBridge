@@ -38,5 +38,8 @@ class MessageRouter:
                     continue
                 result = self.hydroserver_publisher.push_observation_to_upstream(data)
                 if result and result.should_retry is True:
-                    logger.info("Routing observation to sqlite retry buffer ")
+                    logger.warning(
+                        "HydroServer publish failed; buffering for retry: topic=%s",
+                        topic,
+                    )
                     self.retry_buffer.insert(data, topic, result)
