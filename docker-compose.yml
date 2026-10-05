@@ -2,15 +2,6 @@ services:
   hsmqttbridge:
     image: hsmqttbridge:latest
     container_name: hsmqttbridge
-    environment:
-      HYDROSERVER_URL: ${HYDROSERVER_URL}
-      WORKSPACE_API_KEY: ${WORKSPACE_API_KEY}
-      MQTT_BROKER_URL: ${MQTT_BROKER_URL}
-      MQTT_TOPIC_FILTER: ${MQTT_TOPIC_FILTER}
-      DB_PATH: ${DB_PATH}
-      LOG_LEVEL: ${LOG_LEVEL}
-      MAX_RETRY_ATTEMPT: ${MAX_RETRY_ATTEMPT}
-      RETRY_INTERVAL: ${RETRY_INTERVAL}
-
     volumes:
       - ./data:/hsmqttbridge/data
+      - .env:/hsmqttbridge/.env

@@ -1,5 +1,6 @@
 import threading
 import logging
+from queue import Queue
 from settings import settings
 from database.retry_buffer import RetryBuffer
 from mqtt_consumer import MQTTConsumer
@@ -26,6 +27,7 @@ def main():
     # setting up logger first
     setup_logging()
     logger = logging.getLogger(__name__)
+    task_queue = Queue()
 
     retry_buffer = RetryBuffer(settings.db_path)
     hydroserver_publisher = HydroServerPublisher(
@@ -41,13 +43,13 @@ def main():
         password=settings.mqtt_password,
         keepalive=settings.mqtt_keepalive,
         topic_filter=settings.mqtt_topic_filter,
+        task_queue=task_queue,
     )
 
-    router = MessageRouter(hydroserver_publisher, retry_buffer)
+    router = MessageRouter(hydroserver_publisher, retry_buffer, task_queue)
     worker = threading.Thread(
         target=router.route_incoming_message, name="message_router", daemon=True
     )
-    worker.start()
     retry_worker = RetryWorker(
         retry_buffer,
         hydroserver_publisher,
@@ -57,8 +59,10 @@ def main():
     retry_worker_thread = threading.Thread(
         target=retry_worker.run, name="retry_worker", daemon=True
     )
-    retry_worker_thread.start()
+
     try:
+        worker.start()
+        retry_worker_thread.start()
         mqtt.connect()
 
     except Exception:  # pylint: disable=broad-exception-caught

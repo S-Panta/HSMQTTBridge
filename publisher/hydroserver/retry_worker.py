@@ -62,7 +62,7 @@ class RetryWorker:
         for i, (topic, chunk) in enumerate(chunks.items(), start=1):
             try:
                 logger.info(
-                    "Posting chunk %d/%d - Topic: %s (%d observations) "
+                    "Posting chunk %d/%d : Topic: %s (%d observations) "
                     "to HydroServer",
                     i,
                     len(chunks),

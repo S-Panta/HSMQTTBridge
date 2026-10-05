@@ -3,8 +3,7 @@ import logging
 import socket
 import paho.mqtt.client as mqtt
 
-
-from queue_manager import taskqueue
+# from queue_manager import taskqueue
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +15,7 @@ class MQTTConsumer:
         self,
         host,
         port,
+        task_queue,
         client_id="hsbridge",
         username=None,
         password=None,
@@ -30,6 +30,7 @@ class MQTTConsumer:
         self.password = password
         self.keepalive = keepalive
         self.topic_filter = topic_filter
+        self.task_queue = task_queue
 
     def connect(self):
         try:
@@ -79,7 +80,7 @@ class MQTTConsumer:
             client.subscribe(self.topic_filter)
             # there is no way of knowing how many topic exists in the broker of this filter
             # it can be known in self.on_message step
-            logger.info("Subscribed to %s", self.topic_filter)
+            logger.info("The bridge is Subscribed to %s", self.topic_filter)
         else:
             logger.error(
                 "MQTT connection failed: reason_code=%s",
@@ -97,7 +98,7 @@ class MQTTConsumer:
         # raw byte array (bytes object) is received and therefore decoding before sending to object
         try:
             payload = message.payload.decode()
-            taskqueue.put((message.topic, payload))
+            self.task_queue.put((message.topic, payload))
 
         except UnicodeDecodeError:
             logger.exception(
