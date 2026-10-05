@@ -105,7 +105,7 @@ class RetryBuffer:
                     for row in rows
                 ]
         except sqlite3.Error:
-            logger.exception("Failed to fetch %d  table", {self.database_table})
+            logger.exception("Failed to fetch %s table", {self.database_table})
             raise
 
     def delete(self, observations):
@@ -118,7 +118,7 @@ class RetryBuffer:
                     ((observation.id,) for observation in observations),
                 )
         except sqlite3.Error:
-            logger.exception("Failed to delete %d ", len(observations))
+            logger.exception("Failed to delete %d observations", len(observations))
             raise
 
     def update_observation_retry_count(self, observations, error):

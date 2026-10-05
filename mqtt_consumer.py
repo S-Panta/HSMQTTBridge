@@ -79,7 +79,7 @@ class MQTTConsumer:
             client.subscribe(self.topic_filter)
             # there is no way of knowing how many topic exists in the broker of this filter
             # it can be known in self.on_message step
-            logger.info("Subscribed to %s", self.topic_filter)
+            logger.info("The bridge is Subscribed to %s", self.topic_filter)
         else:
             logger.error(
                 "MQTT connection failed: reason_code=%s",

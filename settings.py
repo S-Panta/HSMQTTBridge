@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     db_path: Path
 
     # message_router_topic_and_service_mapping
-    hydroserver_topic_routes: str = Field(default="#")
+    hydroserver_topic_routes: list[str]
 
     # logging level
     log_level: str = Field(default="INFO")
