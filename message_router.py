@@ -22,10 +22,13 @@ class MessageRouter:
 
             if topic.endswith("/lwt"):
                 # to-do: implement notification service
-                logger.info("topic '%s' routed to Notification service",topic)
+                logger.info("topic '%s' routed to Notification service", topic)
                 continue
 
-            if any(topic_matches_sub(route, topic) for route in settings.hydroserver_topic_routes):
+            if any(
+                topic_matches_sub(route, topic)
+                for route in settings.hydroserver_topic_routes
+            ):
                 logger.info("Topic routed to HydroServer")
                 try:
                     data = json.loads(payload)
