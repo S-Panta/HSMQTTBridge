@@ -65,7 +65,7 @@ class RetryBuffer:
                     ),
                 )
                 logger.info(
-                    "Successfully inserted for topic=%s",
+                    "Successfully insert to the retry buffer for topic=%s",
                     topic,
                 )
         except sqlite3.Error:
