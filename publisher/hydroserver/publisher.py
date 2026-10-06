@@ -29,7 +29,7 @@ class HydroServerPublisher(Publisher):
     def _get_datastream(self, datastream_uuid):
         datastream = self.datastreams.get(datastream_uuid)
         if datastream is not None:
-            logger.info(
+            logger.debug(
                 "Using datastream object stored locally for datastream_id = %s",
                 datastream_uuid,
             )
@@ -73,7 +73,7 @@ class HydroServerPublisher(Publisher):
             return PublishFailure.from_exception(error)
         return None
 
-    def push_observation_to_upstream(self, payload):
+    def post_observation(self, payload):
         try:
             payload = self._validate_observation(payload)
         except ValidationError as error:

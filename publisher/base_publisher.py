@@ -28,6 +28,6 @@ class Publisher(ABC):
     """Base class for all publishers."""
 
     @abstractmethod
-    def push_observation_to_upstream(self, payload) -> PublishFailure | None:
+    def post_observation(self, payload) -> PublishFailure | None:
         """Publish data and return an error if publishing fails."""
         raise NotImplementedError
