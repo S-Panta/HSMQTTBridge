@@ -3,8 +3,6 @@ import logging
 from paho.mqtt.client import topic_matches_sub
 from settings import settings
 
-# from queue_manager import taskqueue
-
 logger = logging.getLogger(__name__)
 
 

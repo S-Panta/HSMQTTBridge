@@ -3,8 +3,6 @@ import logging
 import socket
 import paho.mqtt.client as mqtt
 
-# from queue_manager import taskqueue
-
 logger = logging.getLogger(__name__)
 
 
@@ -60,7 +58,7 @@ class MQTTConsumer:
             OSError,
         ) as exc:
             logger.error(
-                "Cnnection to MQTT broker %s:%s failed: %s: %s",
+                "Connection to MQTT broker %s:%s failed: %s: %s",
                 self.host,
                 self.port,
                 type(exc).__name__,
