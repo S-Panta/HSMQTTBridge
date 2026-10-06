@@ -16,11 +16,11 @@ class MQTTConsumer:
         host,
         port,
         task_queue,
-        client_id="hsbridge",
-        username=None,
-        password=None,
-        keepalive=60,
-        topic_filter="#",
+        client_id,
+        username,
+        password,
+        keepalive,
+        topic_filter,
     ):
         self.client = None
         self.host = host

@@ -143,14 +143,14 @@ def test_get_datastream_requests_each_different_datastream(
 def test_post_observation_to_hydroserver(observation_payload, hydroserver_publisher):
     datastream = hydroserver_publisher.hydroserver.datastreams.get.return_value
 
-    result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
+    result = hydroserver_publisher.post_observation(observation_payload)
     assert result is None
     datastream.load_observations.assert_called_once()
 
 
 def test_invalid_observation_is_not_retried(observation_payload, hydroserver_publisher):
     observation_payload["phenomenonTime"] = "not-a-valid-datetime"
-    result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
+    result = hydroserver_publisher.post_observation(observation_payload)
     assert isinstance(result, PublishFailure)
     assert result.status_code == 0
     assert result.error_type == "ValidationError"
@@ -165,7 +165,7 @@ def test_invalid_observation_is_not_retried(observation_payload, hydroserver_pub
         (404, False),
     ],
 )
-def test_push_observation_handles_http_errors(
+def test_post_observation_handles_http_errors(
     observation_payload, hydroserver_publisher, status_code, should_retry
 ):
 
@@ -181,12 +181,12 @@ def test_push_observation_handles_http_errors(
         "_get_datastream",
         return_value=datastream,
     ):
-        result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
+        result = hydroserver_publisher.post_observation(observation_payload)
     assert result.error_type == "HTTPError"
     assert result.should_retry is should_retry
 
 
-def test_push_observation_handles_request_exception(
+def test_post_observation_handles_request_exception(
     observation_payload, hydroserver_publisher
 ):
     response = MagicMock()
@@ -200,12 +200,12 @@ def test_push_observation_handles_request_exception(
         "_get_datastream",
         return_value=datastream,
     ):
-        result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
+        result = hydroserver_publisher.post_observation(observation_payload)
     assert result.error_type == "RequestException"
     assert result.should_retry is True
 
 
-def test_push_observation_handles_missing_datastream(
+def test_post_observation_handles_missing_datastream(
     observation_payload, hydroserver_publisher
 ):
     response = MagicMock()
@@ -215,15 +215,15 @@ def test_push_observation_handles_missing_datastream(
     )
     http_error.response = response
     hydroserver_publisher.hydroserver.datastreams.get.side_effect = http_error
-    result = hydroserver_publisher.push_observation_to_upstream(observation_payload)
+    result = hydroserver_publisher.post_observation(observation_payload)
     assert result.error_type == "HTTPError"
     assert result.should_retry is False
 
 
-def test_push_observation_reuses_cached_datastream(
+def test_post_observation_reuses_cached_datastream(
     observation_payload, hydroserver_publisher
 ):
-    hydroserver_publisher.push_observation_to_upstream(observation_payload)
-    hydroserver_publisher.push_observation_to_upstream(observation_payload)
+    hydroserver_publisher.post_observation(observation_payload)
+    hydroserver_publisher.post_observation(observation_payload)
     hydroserver_publisher.hydroserver.datastreams.get.assert_called_once()
     assert len(hydroserver_publisher.datastreams) == 1
