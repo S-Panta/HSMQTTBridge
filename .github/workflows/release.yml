@@ -25,6 +25,9 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PAT }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@v7
