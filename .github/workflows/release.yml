@@ -34,8 +34,6 @@ jobs:
           images: ${{ secrets.DOCKER_USERNAME }}/hsmqttbridge
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
             type=raw,value=latest
 
       - name: Build and push Docker image
